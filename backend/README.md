@@ -1,4 +1,4 @@
-# ninareru sns auth app
+# ふた旅　アプリケーション
 
 FastAPI、PostgreSQL、Dockerを使用したクリーンアーキテクチャに基づくAPIサーバーです。
 

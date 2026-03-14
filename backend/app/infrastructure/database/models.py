@@ -1,6 +1,18 @@
 from enum import Enum
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Date, Enum as SQLEnum
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Boolean,
+    ForeignKey,
+    Date,
+    Enum as SQLEnum,
+    UniqueConstraint,
+    Float,
+    Text,
+)
 from sqlalchemy.sql import func
 from app.infrastructure.database.base import Base
 
