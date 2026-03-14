@@ -78,4 +78,4 @@ class UserService:
         if not user:
             raise UserNotFoundError(f"User with ID {user_id} not found")
         user.activate()
-        return await self.user_repository.update(user) 
+        return await self.user_repository.update(user)

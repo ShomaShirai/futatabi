@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from app.application.services.user_service import UserService
@@ -11,7 +11,7 @@ from app.shared.exceptions import UserNotFoundError
 router = APIRouter()
 
 
-def get_user_service(db: Session = Depends(get_db)) -> UserService:
+def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
     """Dependency to get user service"""
     user_repository = UserRepositoryImpl(db)
     return UserService(user_repository)
