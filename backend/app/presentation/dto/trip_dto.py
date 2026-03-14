@@ -30,6 +30,24 @@ class TripUpdate(BaseModel):
     status: Optional[str] = None
 
 
+class TripPreferenceUpdate(BaseModel):
+    atmosphere: TripAtmosphere
+    companions: Optional[str] = None
+    budget: Optional[int] = None
+    transport_type: Optional[str] = None
+
+
+class TripMemberCreate(BaseModel):
+    user_id: int
+    role: str = "member"
+    status: str = "joined"
+
+
+class TripMemberUpdate(BaseModel):
+    role: Optional[str] = None
+    status: Optional[str] = None
+
+
 class TripResponse(BaseModel):
     id: int
     user_id: int

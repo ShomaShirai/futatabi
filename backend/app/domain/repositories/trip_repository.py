@@ -38,6 +38,21 @@ class TripRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_member(self, trip_id: int, user_id: int) -> Optional[TripMember]:
+        """Get a member by trip and user."""
+        pass
+
+    @abstractmethod
+    async def update_member(self, member: TripMember) -> Optional[TripMember]:
+        """Update a trip member."""
+        pass
+
+    @abstractmethod
+    async def delete_member(self, trip_id: int, user_id: int) -> bool:
+        """Delete a member from a trip."""
+        pass
+
+    @abstractmethod
     async def upsert_preference(self, preference: TripPreference) -> TripPreference:
         """Create or update trip preference."""
         pass

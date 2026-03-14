@@ -1,6 +1,7 @@
 from typing import Optional
 
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.trip import (
@@ -151,9 +152,53 @@ class TripRepositoryImpl(TripRepository):
             status=member.status,
         )
         self.db.add(db_member)
+        try:
+            await self.db.commit()
+        except IntegrityError as exc:
+            await self.db.rollback()
+            raise ValueError("Trip member already exists") from exc
+        await self.db.refresh(db_member)
+        return self._to_member_entity(db_member)
+
+    async def get_member(self, trip_id: int, user_id: int) -> Optional[TripMember]:
+        result = await self.db.execute(
+            select(TripMemberModel).where(
+                TripMemberModel.trip_id == trip_id,
+                TripMemberModel.user_id == user_id,
+            )
+        )
+        db_member = result.scalar_one_or_none()
+        if db_member is None:
+            return None
+        return self._to_member_entity(db_member)
+
+    async def update_member(self, member: TripMember) -> Optional[TripMember]:
+        result = await self.db.execute(
+            select(TripMemberModel).where(
+                TripMemberModel.trip_id == member.trip_id,
+                TripMemberModel.user_id == member.user_id,
+            )
+        )
+        db_member = result.scalar_one_or_none()
+        if db_member is None:
+            return None
+
+        db_member.role = member.role
+        db_member.status = member.status
+
         await self.db.commit()
         await self.db.refresh(db_member)
         return self._to_member_entity(db_member)
+
+    async def delete_member(self, trip_id: int, user_id: int) -> bool:
+        result = await self.db.execute(
+            delete(TripMemberModel).where(
+                TripMemberModel.trip_id == trip_id,
+                TripMemberModel.user_id == user_id,
+            )
+        )
+        await self.db.commit()
+        return result.rowcount > 0
 
     async def upsert_preference(self, preference: TripPreference) -> TripPreference:
         result = await self.db.execute(

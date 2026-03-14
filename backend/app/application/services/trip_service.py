@@ -1,6 +1,6 @@
 from typing import Optional
 
-from app.domain.entities.trip import Trip, TripAggregate, TripPreference
+from app.domain.entities.trip import Trip, TripAggregate, TripMember, TripPreference
 from app.domain.repositories.trip_repository import TripRepository
 from app.shared.exceptions import PermissionDeniedError, TripNotFoundError
 
@@ -49,4 +49,68 @@ class TripService:
         deleted = await self.trip_repository.delete_trip(trip_id)
         if not deleted:
             raise TripNotFoundError(f"Trip with ID {trip_id} not found")
+        return True
+
+    async def upsert_my_preference(
+        self,
+        user_id: int,
+        trip_id: int,
+        preference: TripPreference,
+    ) -> TripPreference:
+        await self.get_my_trip_detail(user_id=user_id, trip_id=trip_id)
+        preference.trip_id = trip_id
+        return await self.trip_repository.upsert_preference(preference)
+
+    async def add_my_member(
+        self,
+        owner_user_id: int,
+        trip_id: int,
+        member_user_id: int,
+        role: str = "member",
+        status: str = "joined",
+    ) -> TripMember:
+        await self.get_my_trip_detail(user_id=owner_user_id, trip_id=trip_id)
+        member = TripMember(
+            id=None,
+            trip_id=trip_id,
+            user_id=member_user_id,
+            role=role,
+            status=status,
+        )
+        return await self.trip_repository.add_member(member)
+
+    async def update_my_member(
+        self,
+        owner_user_id: int,
+        trip_id: int,
+        member_user_id: int,
+        role: str | None = None,
+        status: str | None = None,
+    ) -> TripMember:
+        await self.get_my_trip_detail(user_id=owner_user_id, trip_id=trip_id)
+        member = await self.trip_repository.get_member(trip_id=trip_id, user_id=member_user_id)
+        if member is None:
+            raise TripNotFoundError(
+                f"Trip member user_id={member_user_id} not found in trip {trip_id}"
+            )
+
+        if role is not None:
+            member.role = role
+        if status is not None:
+            member.status = status
+
+        updated_member = await self.trip_repository.update_member(member)
+        if updated_member is None:
+            raise TripNotFoundError(
+                f"Trip member user_id={member_user_id} not found in trip {trip_id}"
+            )
+        return updated_member
+
+    async def delete_my_member(self, owner_user_id: int, trip_id: int, member_user_id: int) -> bool:
+        await self.get_my_trip_detail(user_id=owner_user_id, trip_id=trip_id)
+        deleted = await self.trip_repository.delete_member(trip_id=trip_id, user_id=member_user_id)
+        if not deleted:
+            raise TripNotFoundError(
+                f"Trip member user_id={member_user_id} not found in trip {trip_id}"
+            )
         return True
