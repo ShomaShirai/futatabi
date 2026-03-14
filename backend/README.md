@@ -167,8 +167,6 @@ docker compose exec backend poetry run alembic downgrade -1
 - `POST /api/v1/users/` - ユーザー作成
 - `PUT /api/v1/users/{user_id}` - ユーザー更新
 - `DELETE /api/v1/users/{user_id}` - ユーザー削除
-- `POST /api/v1/users/{user_id}/activate` - ユーザー有効化
-- `POST /api/v1/users/{user_id}/deactivate` - ユーザー無効化
 
 ## プロジェクト構造
 

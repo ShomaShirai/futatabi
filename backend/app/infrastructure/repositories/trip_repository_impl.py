@@ -141,6 +141,7 @@ class TripRepositoryImpl(TripRepository):
         await self.db.refresh(db_preference)
         return self._to_preference_entity(db_preference)
 
+    # 以下はEntityの宣言
     def _to_trip_entity(self, db_trip: TripModel) -> Trip:
         return Trip(
             id=db_trip.id,
