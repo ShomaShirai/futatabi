@@ -42,7 +42,6 @@ export default function MyPageScreen() {
                 <Text style={travelStyles.subheading}>登録: {item.addedAt}</Text>
               </View>
             )}
-            scrollEnabled={false}
           />
         </View>
 
