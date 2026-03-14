@@ -37,7 +37,6 @@ export default function PlansListScreen() {
             </Link>
           )}
           ItemSeparatorComponent={() => <View />}
-          scrollEnabled={false}
         />
       </View>
     </View>
