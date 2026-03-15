@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -116,6 +117,15 @@ export default function PlanCreateScreen() {
 
       <View style={travelStyles.container}>
         <View style={travelStyles.detailSection}>
+          <Pressable
+            style={[travelStyles.pillButton, { alignSelf: 'flex-start' }]}
+            onPress={() => router.replace('/(tabs)/create')}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <MaterialIcons name="arrow-back" size={16} color="#334155" />
+              <Text style={travelStyles.pillText}>戻る</Text>
+            </View>
+          </Pressable>
           <Text style={travelStyles.heading}>基本情報を入力</Text>
           <Text style={travelStyles.sectionBody}>
             下記を入力すると、バックエンドAPI経由でプランが作成されます。
