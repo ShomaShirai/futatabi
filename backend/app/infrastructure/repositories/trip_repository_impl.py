@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -332,7 +332,15 @@ class TripRepositoryImpl(TripRepository):
         return self._to_item_entity(db_item)
 
     async def delete_item(self, item_id: int) -> bool:
-        result = await self.db.execute(delete(ItineraryItemModel).where(ItineraryItemModel.id == item_id))
+        # replacement_for_item_id が該当アイテムを参照している replan_items を NULL に更新
+        await self.db.execute(
+            update(ReplanItemModel)
+            .where(ReplanItemModel.replacement_for_item_id == item_id)
+            .values(replacement_for_item_id=None)
+        )
+        result = await self.db.execute(
+            delete(ItineraryItemModel).where(ItineraryItemModel.id == item_id)
+        )
         await self.db.commit()
         return result.rowcount > 0
 
