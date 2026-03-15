@@ -260,14 +260,6 @@ export default function PlansListScreen() {
       <AppHeader title="作成済み" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
 
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>作成済み</Text>
-          <View style={styles.brand}>
-            <MaterialIcons name="travel-explore" size={20} color="#EC5B13" />
-            <Text style={styles.brandText}>ふた旅</Text>
-          </View>
-        </View>
-
         <View style={styles.searchWrap}>
           <MaterialIcons name="search" size={20} color="#94A3B8" style={styles.searchIcon} />
           <TextInput
@@ -510,37 +502,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F6F6',
   },
   header: {
-    paddingTop: 18,
     paddingHorizontal: 16,
     paddingBottom: 14,
     backgroundColor: 'rgba(248, 246, 246, 0.96)',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  brand: {
-    marginLeft: 'auto',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  brandText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#EC5B13',
-  },
   searchWrap: {
     position: 'relative',
     justifyContent: 'center',
+    marginTop: 14,
     marginBottom: 14,
   },
   searchIcon: {

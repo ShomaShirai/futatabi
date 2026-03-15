@@ -26,7 +26,6 @@ export default function CreateMethodScreen() {
         {createMethods.map((item) => {
           const isPrimary = item.id === 'create-new';
           const iconName = isPrimary ? 'add-circle' : 'warning-amber';
-          const buttonLabel = isPrimary ? '作成する' : '変更する';
           const buttonIcon = isPrimary ? 'arrow-forward' : 'edit';
 
           return (
@@ -48,22 +47,14 @@ export default function CreateMethodScreen() {
 
                 <Link href={{ pathname: `/${item.target}` }} asChild>
                   <Pressable style={[styles.actionButton, isPrimary ? styles.primaryButton : styles.secondaryButton]}>
-                    <Text style={[styles.actionButtonText, isPrimary ? styles.primaryButtonText : styles.secondaryButtonText]}>
-                      {buttonLabel}
-                    </Text>
-                    <MaterialIcons
-                      name={buttonIcon}
-                      size={18}
-                      color={isPrimary ? '#FFFFFF' : '#0F172A'}
-                    />
                   </Pressable>
                 </Link>
               </View>
             </View>
           );
         })}
-      </ScrollView>
-    </View>
+      </ScrollView >
+    </View >
   );
 }
 
