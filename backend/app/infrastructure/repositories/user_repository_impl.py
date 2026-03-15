@@ -17,7 +17,6 @@ class UserRepositoryImpl(UserRepository):
         db_user = UserModel(
             email=user.email,
             username=user.username,
-            hashed_password=user.hashed_password,
             firebase_uid=user.firebase_uid,
             is_active=user.is_active
         )
@@ -67,7 +66,6 @@ class UserRepositoryImpl(UserRepository):
         
         db_user.email = user.email
         db_user.username = user.username
-        db_user.hashed_password = user.hashed_password
         db_user.firebase_uid = user.firebase_uid
         db_user.is_active = user.is_active
         db_user.updated_at = user.updated_at
@@ -110,7 +108,6 @@ class UserRepositoryImpl(UserRepository):
             id=db_user.id,
             email=db_user.email,
             username=db_user.username,
-            hashed_password=db_user.hashed_password,
             firebase_uid=db_user.firebase_uid,
             is_active=db_user.is_active,
             created_at=db_user.created_at,

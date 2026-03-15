@@ -1,17 +1,16 @@
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.services.user_service import UserService
 from app.domain.entities.user import User
 from app.infrastructure.database.base import get_db
 from app.infrastructure.repositories.user_repository_impl import UserRepositoryImpl
-from app.shared.auth_utils import get_password_hash
 from app.shared.firebase_auth import verify_firebase_id_token
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
@@ -32,9 +31,17 @@ async def _build_unique_username(user_service: UserService, email: str, uid: str
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     user_service: UserService = Depends(get_user_service),
 ) -> User:
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header is missing",
+        )
+
+    token = credentials.credentials
+
     try:
         claims = verify_firebase_id_token(token)
     except Exception:
@@ -66,7 +73,6 @@ async def get_current_user(
             id=None,
             email=email,
             username=username,
-            hashed_password=get_password_hash(uid),
             firebase_uid=uid,
         )
     )
