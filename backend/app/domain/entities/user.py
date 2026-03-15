@@ -9,7 +9,6 @@ class User:
     id: Optional[int]
     email: str
     username: str
-    hashed_password: str
     firebase_uid: Optional[str] = None
     is_active: bool = True
     created_at: Optional[datetime] = None

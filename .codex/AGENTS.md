@@ -38,8 +38,6 @@ backend/app/
 `backend/app/main.py` で `/api/v1` 配下にルーターを集約している。
 
 ### Auth
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/register`
 - `GET /api/v1/auth/me`
 
 ### Users
@@ -153,3 +151,9 @@ backend/app/
 - 不明点がある場合は安全側に倒す（読み取り優先、削除は慎重）。
 - 既存の設定・構成を尊重し、逸脱時は理由をコメントまたはPR説明に残す。
 - 変更前に影響範囲を確認し、変更後は最小限の動作確認を行う。
+
+## OpenAPI 認証確認（Firebase専用）
+- `/docs` を開く。
+- Firebase クライアントで取得した ID トークンを用意する。
+- `Authorize` を押して `Bearer <firebase_id_token>` を入力する。
+- `GET /api/v1/auth/me`、`GET /api/v1/users/me`、`GET /api/v1/trips` を実行して 200 を確認する。
