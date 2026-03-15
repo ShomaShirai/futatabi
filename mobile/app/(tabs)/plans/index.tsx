@@ -1,12 +1,105 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 
 import { savedPlans } from '@/data/travel';
 
 type SortOrder = 'newest' | 'oldest';
 type PickerTarget = 'people' | 'start' | 'end' | null;
+type WheelValue = string | number;
+type DateWheelField = 'year' | 'month' | 'day';
+
+const WHEEL_ITEM_HEIGHT = 44;
+const WHEEL_VISIBLE_ROWS = 5;
+
+function WheelPicker({
+  label,
+  items,
+  value,
+  onChange,
+  formatLabel,
+  locked,
+  onInteractionStart,
+  onInteractionCommit,
+}: {
+  label: string;
+  items: WheelValue[];
+  value: WheelValue;
+  onChange: (value: number) => void;
+  formatLabel: (value: number) => string;
+  locked: boolean;
+  onInteractionStart: () => void;
+  onInteractionCommit: () => void;
+}) {
+  const scrollRef = useRef<ScrollView>(null);
+  const values = useMemo(() => items.map((item) => Number(item)), [items]);
+
+  useEffect(() => {
+    const selectedIndex = Math.max(
+      0,
+      values.findIndex((item) => item === Number(value))
+    );
+    const offset = selectedIndex * WHEEL_ITEM_HEIGHT;
+
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: offset, animated: false });
+    });
+  }, [value, values]);
+
+  const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!values.length) {
+      return;
+    }
+
+    const rawIndex = Math.round(event.nativeEvent.contentOffset.y / WHEEL_ITEM_HEIGHT);
+    const clampedIndex = Math.max(0, Math.min(values.length - 1, rawIndex));
+    const nextValue = values[clampedIndex];
+
+    onChange(nextValue);
+    scrollRef.current?.scrollTo({ y: clampedIndex * WHEEL_ITEM_HEIGHT, animated: false });
+    onInteractionCommit();
+  };
+
+  return (
+    <View style={styles.pickerColumn} pointerEvents={locked ? 'none' : 'auto'}>
+      <View style={styles.wheelWrap}>
+        <View style={styles.wheelHighlight} pointerEvents="none" />
+        <ScrollView
+          ref={scrollRef}
+          style={styles.wheelScroll}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={WHEEL_ITEM_HEIGHT}
+          decelerationRate="fast"
+          onScrollBeginDrag={onInteractionStart}
+          onMomentumScrollBegin={onInteractionStart}
+          onTouchStart={onInteractionStart}
+          onMomentumScrollEnd={handleScrollEnd}
+          contentContainerStyle={styles.wheelContent}
+        >
+          {values.map((item) => (
+            <View key={`${label}-${item}`} style={styles.wheelItem}>
+              <Text style={[styles.wheelText, Number(value) === item ? styles.wheelTextActive : null]}>
+                {formatLabel(item)}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    </View>
+  );
+}
 
 export default function PlansListScreen() {
   const searchInputRef = useRef<TextInput>(null);
@@ -20,6 +113,8 @@ export default function PlansListScreen() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
+  const [activeWheel, setActiveWheel] = useState<string | null>(null);
+  const [activeDateWheel, setActiveDateWheel] = useState<DateWheelField>('year');
 
   const peopleOptions = useMemo(() => {
     const values = new Set<number>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -33,18 +128,7 @@ export default function PlansListScreen() {
   }, []);
 
   const availableYears = useMemo(() => {
-    const years = new Set<number>();
-    const now = new Date().getFullYear();
-    savedPlans.forEach((plan) => {
-      const matched = plan.period.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
-      if (matched) {
-        years.add(Number(matched[1]));
-      }
-    });
-    for (let year = now - 5; year <= now + 5; year += 1) {
-      years.add(year);
-    }
-    return Array.from(years).sort((a, b) => a - b);
+    return Array.from({ length: 31 }, (_, index) => 2000 + index);
   }, []);
 
   const daysInMonth = useMemo(() => {
@@ -92,11 +176,13 @@ export default function PlansListScreen() {
     setSelectedYear(base.getFullYear());
     setSelectedMonth(base.getMonth() + 1);
     setSelectedDay(base.getDate());
+    setActiveDateWheel('year');
     setActivePicker(target);
   };
 
   const closePicker = () => {
     setActivePicker(null);
+    setActiveWheel(null);
   };
 
   const commitPicker = () => {
@@ -197,13 +283,6 @@ export default function PlansListScreen() {
             </Text>
             <MaterialIcons name="calendar-month" size={18} color={endDateFilter ? '#EC5B13' : '#64748B'} />
           </Pressable>
-
-          <Pressable style={[styles.chip, keyword ? styles.chipActive : null]} onPress={() => searchInputRef.current?.focus()}>
-            <Text style={[styles.chipText, keyword ? styles.chipTextActive : null]}>
-              {keyword ? 'キーワードあり' : 'キーワード'}
-            </Text>
-            <MaterialIcons name="sell" size={18} color={keyword ? '#EC5B13' : '#64748B'} />
-          </Pressable>
         </ScrollView>
       </View>
 
@@ -282,92 +361,113 @@ export default function PlansListScreen() {
       <Modal visible={activePicker !== null} transparent animationType="slide" onRequestClose={closePicker}>
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.modalDismiss} onPress={closePicker} />
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>
-              {activePicker === 'people' ? '人数を選択' : activePicker === 'start' ? '開始日を選択' : '終了日を選択'}
-            </Text>
+          <View style={[styles.modalSheet, activePicker === 'people' ? styles.modalSheetPeople : null]}>
+            <View style={[styles.modalTopSection, activePicker === 'people' ? styles.modalTopSectionPeople : null]}>
+              <Text style={styles.modalTitle}>
+                {activePicker === 'people' ? '人数を選択' : activePicker === 'start' ? '開始日を選択' : '終了日を選択'}
+              </Text>
 
-            {activePicker === 'people' ? (
-              <ScrollView style={styles.singlePicker} showsVerticalScrollIndicator={false} contentContainerStyle={styles.singlePickerContent}>
-                <Pressable style={[styles.pickerPill, selectedPeople === 0 ? styles.pickerPillActive : null]} onPress={() => setSelectedPeople(0)}>
-                  <Text style={[styles.pickerPillText, selectedPeople === 0 ? styles.pickerPillTextActive : null]}>指定なし</Text>
-                </Pressable>
-                {peopleOptions.map((value) => (
+              {activePicker === 'people' ? (
+                <View style={styles.peopleHeaderSpacer} />
+              ) : (
+                <View style={styles.dateFieldButtons}>
                   <Pressable
-                    key={`people-${value}`}
-                    style={[styles.pickerPill, selectedPeople === value ? styles.pickerPillActive : null]}
-                    onPress={() => setSelectedPeople(value)}
+                    style={[styles.dateFieldButton, activeDateWheel === 'year' ? styles.dateFieldButtonActive : null]}
+                    onPress={() => setActiveDateWheel('year')}
                   >
-                    <Text style={[styles.pickerPillText, selectedPeople === value ? styles.pickerPillTextActive : null]}>{value}名</Text>
+                    <Text style={[styles.dateFieldButtonText, activeDateWheel === 'year' ? styles.dateFieldButtonTextActive : null]}>
+                      {selectedYear}年
+                    </Text>
                   </Pressable>
-                ))}
-              </ScrollView>
-            ) : (
-              <View style={styles.pickerColumns}>
-                <View style={styles.pickerColumn}>
-                  <Text style={styles.pickerLabel}>年</Text>
-                  <ScrollView style={styles.columnScroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.columnContent}>
-                    {availableYears.map((year) => (
-                      <Pressable
-                        key={`year-${year}`}
-                        style={[styles.pickerPill, selectedYear === year ? styles.pickerPillActive : null]}
-                        onPress={() => {
-                          setSelectedYear(year);
-                          setSelectedDay((prev) => Math.min(prev, new Date(year, selectedMonth, 0).getDate()));
-                        }}
-                      >
-                        <Text style={[styles.pickerPillText, selectedYear === year ? styles.pickerPillTextActive : null]}>{year}</Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
+                  <Pressable
+                    style={[styles.dateFieldButton, activeDateWheel === 'month' ? styles.dateFieldButtonActive : null]}
+                    onPress={() => setActiveDateWheel('month')}
+                  >
+                    <Text style={[styles.dateFieldButtonText, activeDateWheel === 'month' ? styles.dateFieldButtonTextActive : null]}>
+                      {String(selectedMonth).padStart(2, '0')}月
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.dateFieldButton, activeDateWheel === 'day' ? styles.dateFieldButtonActive : null]}
+                    onPress={() => setActiveDateWheel('day')}
+                  >
+                    <Text style={[styles.dateFieldButtonText, activeDateWheel === 'day' ? styles.dateFieldButtonTextActive : null]}>
+                      {String(selectedDay).padStart(2, '0')}日
+                    </Text>
+                  </Pressable>
                 </View>
+              )}
+            </View>
 
-                <View style={styles.pickerColumn}>
-                  <Text style={styles.pickerLabel}>月</Text>
-                  <ScrollView style={styles.columnScroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.columnContent}>
-                    {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
-                      <Pressable
-                        key={`month-${month}`}
-                        style={[styles.pickerPill, selectedMonth === month ? styles.pickerPillActive : null]}
-                        onPress={() => {
-                          setSelectedMonth(month);
-                          setSelectedDay((prev) => Math.min(prev, new Date(selectedYear, month, 0).getDate()));
-                        }}
-                      >
-                        <Text style={[styles.pickerPillText, selectedMonth === month ? styles.pickerPillTextActive : null]}>
-                          {String(month).padStart(2, '0')}月
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                </View>
+            <View style={styles.modalWheelSection}>
+              {activePicker === 'people' ? (
+                <WheelPicker
+                  label="人数"
+                  items={[0, ...peopleOptions]}
+                  value={selectedPeople}
+                  onChange={setSelectedPeople}
+                  formatLabel={(value) => (value === 0 ? '指定なし' : `${value}名`)}
+                  locked={activeWheel !== null && activeWheel !== 'people'}
+                  onInteractionStart={() => setActiveWheel('people')}
+                  onInteractionCommit={() => setActiveWheel(null)}
+                />
+              ) : null}
 
-                <View style={styles.pickerColumn}>
-                  <Text style={styles.pickerLabel}>日</Text>
-                  <ScrollView style={styles.columnScroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.columnContent}>
-                    {dayOptions.map((day) => (
-                      <Pressable
-                        key={`day-${day}`}
-                        style={[styles.pickerPill, selectedDay === day ? styles.pickerPillActive : null]}
-                        onPress={() => setSelectedDay(day)}
-                      >
-                        <Text style={[styles.pickerPillText, selectedDay === day ? styles.pickerPillTextActive : null]}>
-                          {String(day).padStart(2, '0')}日
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                </View>
+              {activePicker !== 'people' && activeDateWheel === 'year' ? (
+                <WheelPicker
+                  label="年"
+                  items={availableYears}
+                  value={selectedYear}
+                  onChange={(year) => {
+                    setSelectedYear(year);
+                    setSelectedDay((prev) => Math.min(prev, new Date(year, selectedMonth, 0).getDate()));
+                  }}
+                  formatLabel={(value) => `${value}`}
+                  locked={activeWheel !== null && activeWheel !== 'year'}
+                  onInteractionStart={() => setActiveWheel('year')}
+                  onInteractionCommit={() => setActiveWheel(null)}
+                />
+              ) : null}
+
+              {activePicker !== 'people' && activeDateWheel === 'month' ? (
+                <WheelPicker
+                  label="月"
+                  items={Array.from({ length: 12 }, (_, index) => index + 1)}
+                  value={selectedMonth}
+                  onChange={(month) => {
+                    setSelectedMonth(month);
+                    setSelectedDay((prev) => Math.min(prev, new Date(selectedYear, month, 0).getDate()));
+                  }}
+                  formatLabel={(value) => `${String(value).padStart(2, '0')}月`}
+                  locked={activeWheel !== null && activeWheel !== 'month'}
+                  onInteractionStart={() => setActiveWheel('month')}
+                  onInteractionCommit={() => setActiveWheel(null)}
+                />
+              ) : null}
+
+              {activePicker !== 'people' && activeDateWheel === 'day' ? (
+                <WheelPicker
+                  label="日"
+                  items={dayOptions}
+                  value={selectedDay}
+                  onChange={setSelectedDay}
+                  formatLabel={(value) => `${String(value).padStart(2, '0')}日`}
+                  locked={activeWheel !== null && activeWheel !== 'day'}
+                  onInteractionStart={() => setActiveWheel('day')}
+                  onInteractionCommit={() => setActiveWheel(null)}
+                />
+              ) : null}
+            </View>
+
+            <View style={styles.modalBottomSection}>
+              <View style={styles.modalActions}>
+                <Pressable style={styles.modalSecondaryButton} onPress={closePicker}>
+                  <Text style={styles.modalSecondaryText}>キャンセル</Text>
+                </Pressable>
+                <Pressable style={styles.modalPrimaryButton} onPress={commitPicker}>
+                  <Text style={styles.modalPrimaryText}>決定</Text>
+                </Pressable>
               </View>
-            )}
-
-            <View style={styles.modalActions}>
-              <Pressable style={styles.modalSecondaryButton} onPress={closePicker}>
-                <Text style={styles.modalSecondaryText}>キャンセル</Text>
-              </Pressable>
-              <Pressable style={styles.modalPrimaryButton} onPress={commitPicker}>
-                <Text style={styles.modalPrimaryText}>決定</Text>
-              </Pressable>
             </View>
           </View>
         </View>
@@ -646,72 +746,121 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 18,
-    gap: 14,
-    maxHeight: '78%',
+    paddingTop: 18,
+    paddingHorizontal: 18,
+    paddingBottom: 8,
+    height: '62%',
+  },
+  modalSheetPeople: {
+    height: '53%',
+  },
+  modalTopSection: {
+    flexShrink: 0,
+    gap: 12,
+    justifyContent: 'flex-start',
+    marginBottom: 12,
+    minHeight: 84,
+  },
+  modalTopSectionPeople: {
+    gap: 4,
+    marginBottom: 4,
+    minHeight: 32,
+  },
+  modalWheelSection: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    maxHeight: WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE_ROWS + 16,
+  },
+  modalBottomSection: {
+    flexShrink: 0,
+    justifyContent: 'flex-end',
+    paddingTop: 12,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
   },
-  singlePicker: {
-    maxHeight: 280,
-  },
-  singlePickerContent: {
-    gap: 8,
-    paddingBottom: 8,
-  },
-  pickerColumns: {
+  dateFieldButtons: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
-  pickerColumn: {
+  peopleHeaderSpacer: {
+    minHeight: 0,
+  },
+  dateFieldButton: {
     flex: 1,
-    gap: 8,
-  },
-  pickerLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  columnScroll: {
-    maxHeight: 260,
-  },
-  columnContent: {
-    gap: 8,
-    paddingBottom: 8,
-  },
-  pickerPill: {
-    minHeight: 40,
-    borderRadius: 999,
+    minHeight: 42,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
   },
-  pickerPillActive: {
+  dateFieldButtonActive: {
     backgroundColor: '#FFF1E8',
     borderColor: '#F4B18A',
   },
-  pickerPillText: {
+  dateFieldButtonText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#475569',
   },
-  pickerPillTextActive: {
+  dateFieldButtonTextActive: {
+    color: '#EC5B13',
+  },
+  pickerColumn: {
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  wheelWrap: {
+    height: WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE_ROWS,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  wheelHighlight: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    top: WHEEL_ITEM_HEIGHT * 2,
+    height: WHEEL_ITEM_HEIGHT,
+    borderRadius: 12,
+    backgroundColor: '#FFF1E8',
+    borderWidth: 1,
+    borderColor: '#F4B18A',
+    zIndex: 0,
+  },
+  wheelScroll: {
+    zIndex: 1,
+  },
+  wheelContent: {
+    paddingVertical: WHEEL_ITEM_HEIGHT * 2,
+  },
+  wheelItem: {
+    height: WHEEL_ITEM_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wheelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  wheelTextActive: {
     color: '#EC5B13',
   },
   modalActions: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 4,
+    alignItems: 'center',
   },
   modalSecondaryButton: {
     flex: 1,
-    minHeight: 46,
+    minHeight: 50,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#CBD5E1',
@@ -725,7 +874,7 @@ const styles = StyleSheet.create({
   },
   modalPrimaryButton: {
     flex: 1,
-    minHeight: 46,
+    minHeight: 50,
     borderRadius: 14,
     backgroundColor: '#EC5B13',
     alignItems: 'center',
