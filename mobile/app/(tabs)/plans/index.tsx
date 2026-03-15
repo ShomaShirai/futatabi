@@ -14,7 +14,8 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 
-import { savedPlans } from '@/data/travel';
+import { AppHeader } from '@/components/travel/AppHeader';
+import { savedPlans, weatherMock } from '@/data/travel';
 
 type SortOrder = 'newest' | 'oldest';
 type PickerTarget = 'people' | 'start' | 'end' | null;
@@ -256,6 +257,8 @@ export default function PlansListScreen() {
 
   return (
     <View style={styles.screen}>
+      <AppHeader title="作成済み" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>作成済み</Text>
