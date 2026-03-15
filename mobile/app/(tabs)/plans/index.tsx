@@ -165,7 +165,7 @@ export default function PlansListScreen() {
   };
 
   const openPeoplePicker = () => {
-    setSelectedPeople(parsePeople(peopleFilter) ?? 0);
+    setSelectedPeople(parsePeople(peopleFilter) ?? 1);
     setActivePicker('people');
   };
 
@@ -183,6 +183,26 @@ export default function PlansListScreen() {
   const closePicker = () => {
     setActivePicker(null);
     setActiveWheel(null);
+  };
+
+  const resetPicker = () => {
+    if (activePicker === 'people') {
+      setPeopleFilter('');
+      setSelectedPeople(1);
+      closePicker();
+      return;
+    }
+
+    if (activePicker === 'start') {
+      setStartDateFilter('');
+      closePicker();
+      return;
+    }
+
+    if (activePicker === 'end') {
+      setEndDateFilter('');
+      closePicker();
+    }
   };
 
   const commitPicker = () => {
@@ -363,9 +383,14 @@ export default function PlansListScreen() {
           <Pressable style={styles.modalDismiss} onPress={closePicker} />
           <View style={[styles.modalSheet, activePicker === 'people' ? styles.modalSheetPeople : null]}>
             <View style={[styles.modalTopSection, activePicker === 'people' ? styles.modalTopSectionPeople : null]}>
-              <Text style={styles.modalTitle}>
-                {activePicker === 'people' ? '人数を選択' : activePicker === 'start' ? '開始日を選択' : '終了日を選択'}
-              </Text>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>
+                  {activePicker === 'people' ? '人数を選択' : activePicker === 'start' ? '開始日を選択' : '終了日を選択'}
+                </Text>
+                <Pressable style={styles.modalCloseButton} onPress={closePicker}>
+                  <MaterialIcons name="close" size={20} color="#64748B" />
+                </Pressable>
+              </View>
 
               {activePicker === 'people' ? (
                 <View style={styles.peopleHeaderSpacer} />
@@ -403,10 +428,10 @@ export default function PlansListScreen() {
               {activePicker === 'people' ? (
                 <WheelPicker
                   label="人数"
-                  items={[0, ...peopleOptions]}
+                  items={peopleOptions}
                   value={selectedPeople}
                   onChange={setSelectedPeople}
-                  formatLabel={(value) => (value === 0 ? '指定なし' : `${value}名`)}
+                  formatLabel={(value) => `${value}名`}
                   locked={activeWheel !== null && activeWheel !== 'people'}
                   onInteractionStart={() => setActiveWheel('people')}
                   onInteractionCommit={() => setActiveWheel(null)}
@@ -461,8 +486,8 @@ export default function PlansListScreen() {
 
             <View style={styles.modalBottomSection}>
               <View style={styles.modalActions}>
-                <Pressable style={styles.modalSecondaryButton} onPress={closePicker}>
-                  <Text style={styles.modalSecondaryText}>キャンセル</Text>
+                <Pressable style={styles.modalSecondaryButton} onPress={resetPicker}>
+                  <Text style={styles.modalSecondaryText}>リセット</Text>
                 </Pressable>
                 <Pressable style={styles.modalPrimaryButton} onPress={commitPicker}>
                   <Text style={styles.modalPrimaryText}>決定</Text>
@@ -766,6 +791,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     minHeight: 32,
   },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   modalWheelSection: {
     flex: 1,
     justifyContent: 'flex-start',
@@ -780,6 +810,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dateFieldButtons: {
     flexDirection: 'row',
