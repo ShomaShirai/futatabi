@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from app.domain.entities.trip import (
+    AiPlanGeneration,
     Incident,
     ItineraryItem,
     ReplanAggregate,
@@ -135,4 +136,29 @@ class TripRepository(ABC):
     @abstractmethod
     async def get_replan_aggregate(self, session_id: int) -> Optional[ReplanAggregate]:
         """Get replan session aggregate by id."""
+        pass
+
+    @abstractmethod
+    async def create_ai_plan_generation(self, generation: AiPlanGeneration) -> AiPlanGeneration:
+        """Create AI plan generation job metadata."""
+        pass
+
+    @abstractmethod
+    async def get_ai_plan_generation(self, generation_id: int) -> Optional[AiPlanGeneration]:
+        """Get AI plan generation by id."""
+        pass
+
+    @abstractmethod
+    async def update_ai_plan_generation(self, generation: AiPlanGeneration) -> Optional[AiPlanGeneration]:
+        """Update AI plan generation status and metadata."""
+        pass
+
+    @abstractmethod
+    async def list_days_by_trip(self, trip_id: int) -> list[TripDay]:
+        """List days by trip."""
+        pass
+
+    @abstractmethod
+    async def delete_items_by_trip(self, trip_id: int) -> int:
+        """Delete itinerary items under all days in the trip."""
         pass

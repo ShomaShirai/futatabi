@@ -156,7 +156,7 @@ export default function PlanDetailScreen() {
 
         <Link href={{ pathname: '/create/replanning', params: { tripId: String(tripId) } }} asChild>
           <Pressable style={travelStyles.primaryButton}>
-            <Text style={travelStyles.primaryButtonText}>このプランで再計画する</Text>
+            <Text style={travelStyles.primaryButtonText}>AIによるプランの再計画</Text>
           </Pressable>
         </Link>
       </View>
