@@ -3,8 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
+import { getFriends } from '@/features/friends/api/get-friends';
+import { type FriendResponse } from '@/features/friends/types/friend-request';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { getTripDetail } from '@/features/trips/api/get-trip-detail';
+import { addTripMember, removeTripMember } from '@/features/trips/api/trip-members';
 import { updateTrip } from '@/features/trips/api/update-trip';
 import { upsertTripPreference } from '@/features/trips/api/upsert-trip-preference';
 import { type TripAtmosphere } from '@/features/trips/types/create-trip';
@@ -58,12 +61,17 @@ export default function TripEditScreen() {
   const [endDate, setEndDate] = useState('');
 
   const [atmosphere, setAtmosphere] = useState<TripAtmosphere>('のんびり');
-  const [companions, setCompanions] = useState('');
   const [budget, setBudget] = useState('');
   const [transportType, setTransportType] = useState('');
 
+  const [friends, setFriends] = useState<FriendResponse[]>([]);
+  const [isLoadingFriends, setIsLoadingFriends] = useState(true);
+  const [currentMemberUserIds, setCurrentMemberUserIds] = useState<Set<number>>(new Set());
+  const [selectedMemberUserIds, setSelectedMemberUserIds] = useState<Set<number>>(new Set());
+
   const [isSavingBasic, setIsSavingBasic] = useState(false);
   const [isSavingPreference, setIsSavingPreference] = useState(false);
+  const [isSavingMembers, setIsSavingMembers] = useState(false);
 
   const refreshDetail = async (id: number) => {
     const detail = await getTripDetail(id);
@@ -73,9 +81,25 @@ export default function TripEditScreen() {
     setEndDate(detail.trip.end_date);
 
     setAtmosphere(detail.preference?.atmosphere ?? 'のんびり');
-    setCompanions(detail.preference?.companions ?? '');
     setBudget(detail.preference?.budget ? String(detail.preference.budget) : '');
     setTransportType(detail.preference?.transport_type ?? '');
+
+    const memberIds = new Set(detail.members.map((member) => member.user_id));
+    setCurrentMemberUserIds(memberIds);
+    setSelectedMemberUserIds(new Set(memberIds));
+  };
+
+  const refreshFriends = async () => {
+    try {
+      setIsLoadingFriends(true);
+      const list = await getFriends();
+      setFriends(list);
+    } catch (error) {
+      Alert.alert('取得失敗', getErrorMessage(error, 'フレンド一覧の取得に失敗しました'));
+      setFriends([]);
+    } finally {
+      setIsLoadingFriends(false);
+    }
   };
 
   useEffect(() => {
@@ -86,7 +110,7 @@ export default function TripEditScreen() {
       }
       try {
         setIsLoading(true);
-        await refreshDetail(tripId);
+        await Promise.all([refreshDetail(tripId), refreshFriends()]);
       } catch (error) {
         Alert.alert('取得失敗', getErrorMessage(error, 'プラン詳細の取得に失敗しました'));
       } finally {
@@ -146,7 +170,6 @@ export default function TripEditScreen() {
       setIsSavingPreference(true);
       await upsertTripPreference(tripId, {
         atmosphere,
-        companions: companions.trim() || undefined,
         budget: parsedBudget,
         transport_type: transportType.trim() || undefined,
       });
@@ -156,6 +179,66 @@ export default function TripEditScreen() {
       Alert.alert('更新失敗', getErrorMessage(error, '好みの更新に失敗しました'));
     } finally {
       setIsSavingPreference(false);
+    }
+  };
+
+  const toggleMember = (userId: number) => {
+    setSelectedMemberUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
+    });
+  };
+
+  const handleSaveMembers = async () => {
+    if (!tripId || isSavingMembers) {
+      return;
+    }
+
+    const toAdd = Array.from(selectedMemberUserIds).filter((userId) => !currentMemberUserIds.has(userId));
+    const toRemove = Array.from(currentMemberUserIds).filter((userId) => !selectedMemberUserIds.has(userId));
+
+    if (!toAdd.length && !toRemove.length) {
+      Alert.alert('変更なし', '同行者の変更はありません。');
+      return;
+    }
+
+    let hasError = false;
+
+    try {
+      setIsSavingMembers(true);
+
+      for (const userId of toAdd) {
+        try {
+          await addTripMember(tripId, userId);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 409) {
+            continue;
+          }
+          hasError = true;
+        }
+      }
+
+      for (const userId of toRemove) {
+        try {
+          await removeTripMember(tripId, userId);
+        } catch {
+          hasError = true;
+        }
+      }
+
+      await refreshDetail(tripId);
+      if (hasError) {
+        Alert.alert('一部失敗', '一部の同行者更新に失敗しました。最新状態で再表示しています。');
+      } else {
+        Alert.alert('更新完了', '同行者を更新しました。');
+      }
+    } finally {
+      setIsSavingMembers(false);
     }
   };
 
@@ -215,7 +298,6 @@ export default function TripEditScreen() {
               );
             })}
           </View>
-          <TextInput style={travelStyles.input} value={companions} onChangeText={setCompanions} placeholder="同行者 (例: friends)" />
           <TextInput style={travelStyles.input} value={budget} onChangeText={setBudget} placeholder="予算" keyboardType="number-pad" />
           <TextInput style={travelStyles.input} value={transportType} onChangeText={setTransportType} placeholder="移動手段 (例: train)" />
           <Pressable
@@ -224,6 +306,43 @@ export default function TripEditScreen() {
             disabled={isSavingPreference}
           >
             {isSavingPreference ? <ActivityIndicator color="#FFFFFF" /> : <Text style={travelStyles.primaryButtonText}>好みを更新</Text>}
+          </Pressable>
+        </View>
+
+        <View style={travelStyles.detailSection}>
+          <Text style={travelStyles.sectionTitleText}>同行者</Text>
+          <Text style={travelStyles.sectionBody}>
+            フレンド一覧から同行者を選択してください（{selectedMemberUserIds.size}人選択中）
+          </Text>
+          {isLoadingFriends ? (
+            <ActivityIndicator color="#F97316" />
+          ) : friends.length ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {friends.map((friend) => {
+                const active = selectedMemberUserIds.has(friend.user.id);
+                return (
+                  <Pressable
+                    key={friend.user.id}
+                    style={[travelStyles.pillButton, active ? { borderColor: '#F97316', backgroundColor: '#FFF7ED' } : null]}
+                    onPress={() => toggleMember(friend.user.id)}
+                  >
+                    <Text style={[travelStyles.pillText, active ? { color: '#F97316' } : null]}>
+                      {active ? '✓ ' : ''}
+                      {friend.user.username}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={travelStyles.sectionBody}>フレンドがいません。先にフレンドを追加してください。</Text>
+          )}
+          <Pressable
+            style={[travelStyles.primaryButton, isSavingMembers ? { opacity: 0.6 } : null]}
+            onPress={handleSaveMembers}
+            disabled={isSavingMembers}
+          >
+            {isSavingMembers ? <ActivityIndicator color="#FFFFFF" /> : <Text style={travelStyles.primaryButtonText}>同行者を更新</Text>}
           </Pressable>
         </View>
       </ScrollView>
