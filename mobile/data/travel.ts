@@ -148,11 +148,6 @@ export const savedPlans: SavedPlan[] = [
   },
 ];
 
-export const friendsMock: Friend[] = [
-  { id: 'fr-1', name: '佐藤 亮', role: '同伴者', addedAt: '2026/02/10' },
-  { id: 'fr-2', name: '中村 里奈', role: '旅のしおり共有', addedAt: '2026/02/18' },
-];
-
 export const tripHistoryMock = [
   {
     id: 'history-1',

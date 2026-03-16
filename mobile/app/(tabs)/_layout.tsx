@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { useAuth } from '@/features/auth/hooks/use-auth';
@@ -10,9 +11,11 @@ export default function TabLayout() {
 
   if (isLoading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator />
-      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <View style={styles.loading}>
+          <ActivityIndicator />
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -21,71 +24,73 @@ export default function TabLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#F97316',
-        tabBarInactiveTintColor: '#64748B',
-        tabBarButton: HapticTab,
-        tabBarStyle: {
-          height: 64,
-          paddingTop: 6,
-          paddingBottom: 8,
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E2E8F0',
-          overflow: 'visible',
-        },
-      }}>
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: 'ホーム',
-          tabBarIcon: ({ color }) => <MaterialIcons name="home" size={22} color={color} />,
-          tabBarLabelStyle: { fontSize: 11 },
-        }}
-      />
-      <Tabs.Screen
-        name="plans"
-        options={{
-          title: '作成済み',
-          tabBarIcon: ({ color }) => <MaterialIcons name="bookmark" size={22} color={color} />,
-          tabBarLabelStyle: { fontSize: 11 },
-        }}
-      />
-      <Tabs.Screen
-        name="create"
-        options={{
-          title: '作成',
-          tabBarLabel: () => null,
-          tabBarIcon: () => (
-            <View style={styles.createButtonWrap}>
-              <View style={styles.createButton}>
-                <View style={styles.createButtonContent}>
-                  <MaterialIcons name="add" size={35} color="#FFFFFF" />
-                  <Text style={styles.createButtonText}>作成</Text>
+    <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: '#F97316',
+          tabBarInactiveTintColor: '#64748B',
+          tabBarButton: HapticTab,
+          tabBarStyle: {
+            height: 64,
+            paddingTop: 6,
+            paddingBottom: 8,
+            backgroundColor: '#FFFFFF',
+            borderTopColor: '#E2E8F0',
+            overflow: 'visible',
+          },
+        }}>
+        <Tabs.Screen
+          name="home"
+          options={{
+            title: 'ホーム',
+            tabBarIcon: ({ color }) => <MaterialIcons name="home" size={22} color={color} />,
+            tabBarLabelStyle: { fontSize: 11 },
+          }}
+        />
+        <Tabs.Screen
+          name="plans"
+          options={{
+            title: '作成済み',
+            tabBarIcon: ({ color }) => <MaterialIcons name="bookmark" size={22} color={color} />,
+            tabBarLabelStyle: { fontSize: 11 },
+          }}
+        />
+        <Tabs.Screen
+          name="create"
+          options={{
+            title: '作成',
+            tabBarLabel: () => null,
+            tabBarIcon: () => (
+              <View style={styles.createButtonWrap}>
+                <View style={styles.createButton}>
+                  <View style={styles.createButtonContent}>
+                    <MaterialIcons name="add" size={35} color="#FFFFFF" />
+                    <Text style={styles.createButtonText}>作成</Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="recommend"
-        options={{
-          title: 'おすすめ',
-          tabBarIcon: ({ color }) => <MaterialIcons name="explore" size={22} color={color} />,
-          tabBarLabelStyle: { fontSize: 11 },
-        }}
-      />
-      <Tabs.Screen
-        name="mypage"
-        options={{
-          title: 'マイページ',
-          tabBarIcon: ({ color }) => <MaterialIcons name="person" size={22} color={color} />,
-          tabBarLabelStyle: { fontSize: 11 },
-        }}
-      />
-    </Tabs>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="recommend"
+          options={{
+            title: 'おすすめ',
+            tabBarIcon: ({ color }) => <MaterialIcons name="explore" size={22} color={color} />,
+            tabBarLabelStyle: { fontSize: 11 },
+          }}
+        />
+        <Tabs.Screen
+          name="mypage"
+          options={{
+            title: 'マイページ',
+            tabBarIcon: ({ color }) => <MaterialIcons name="person" size={22} color={color} />,
+            tabBarLabelStyle: { fontSize: 11 },
+          }}
+        />
+      </Tabs>
+    </SafeAreaView>
   );
 }
 
