@@ -1,6 +1,7 @@
 # Domain entities
 
 from app.domain.entities.trip import (
+    AiPlanGeneration,
     ItineraryItem,
     Trip,
     TripAggregate,
@@ -20,6 +21,7 @@ from app.domain.entities.user import User
 __all__ = [
     "User",
     "Trip",
+    "AiPlanGeneration",
     "TripPreference",
     "TripMember",
     "TripDay",
