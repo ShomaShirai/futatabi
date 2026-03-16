@@ -49,17 +49,19 @@ export type ItineraryItemResponse = {
 export type TripAggregateResponse = {
   trip: TripResponse;
   preference?: TripPreferenceResponse | null;
-  members: Array<{
-    id: number;
-    trip_id: number;
-    user_id: number;
-    role: string;
-    status: string;
-    created_at?: string | null;
-    updated_at?: string | null;
-  }>;
+  members: TripMemberResponse[];
   days: TripDayResponse[];
   itinerary_items: ItineraryItemResponse[];
+};
+
+export type TripMemberResponse = {
+  id: number;
+  trip_id: number;
+  user_id: number;
+  role: string;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 export type UpdateTripRequest = {

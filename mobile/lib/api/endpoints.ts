@@ -24,6 +24,10 @@ export const endpoints = {
     preference: {
       upsert: (tripId: number | string) => `/trips/${tripId}/preference`,
     },
+    members: {
+      create: (tripId: number | string) => `/trips/${tripId}/members`,
+      delete: (tripId: number | string, userId: number | string) => `/trips/${tripId}/members/${userId}`,
+    },
     days: {
       create: (tripId: number | string) => `/trips/${tripId}/days`,
       items: {
