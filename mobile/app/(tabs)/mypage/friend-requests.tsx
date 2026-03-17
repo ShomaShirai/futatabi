@@ -9,9 +9,9 @@ import {
   type FriendRequestDecisionStatus,
   type FriendRequestResponse,
 } from '@/features/friends/types/friend-request';
+import { getFriendRequestUpdateErrorMessage } from '@/features/mypage/utils/errors';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
-import { ApiError } from '@/lib/api/client';
 import { weatherMock } from '@/data/travel';
 
 export default function FriendRequestsScreen() {
@@ -51,21 +51,7 @@ export default function FriendRequestsScreen() {
         await updateFriendRequestStatus(requestId, status);
         setRequests((prev) => prev.filter((request) => request.id !== requestId));
       } catch (error) {
-        if (error instanceof ApiError) {
-          if (error.status === 401) {
-            Alert.alert('認証エラー', 'セッションが切れました。再ログインしてください。');
-          } else if (error.status === 403) {
-            Alert.alert('権限エラー', 'この申請を更新する権限がありません。');
-          } else if (error.status === 404) {
-            Alert.alert('更新失敗', '対象の申請が見つかりませんでした。');
-          } else if (error.status === 409) {
-            Alert.alert('更新失敗', 'この申請はすでに処理済みです。');
-          } else {
-            Alert.alert('更新失敗', `申請の更新に失敗しました (${error.status})`);
-          }
-        } else {
-          Alert.alert('更新失敗', '通信エラーが発生しました。時間をおいて再度お試しください。');
-        }
+        Alert.alert('更新失敗', getFriendRequestUpdateErrorMessage(error));
         await loadIncomingRequests();
       } finally {
         setProcessingRequestId(null);
