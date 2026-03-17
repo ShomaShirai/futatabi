@@ -22,20 +22,22 @@ export default function LoginScreen() {
       hasPassword: Boolean(password),
     });
     try {
+      console.log('[auth] submit start', { mode, email: email.trim() });
       if (mode === 'login') {
         await signIn(email.trim(), password);
       } else {
         await signUp(email.trim(), password);
       }
+      console.log('[auth] submit success', { mode, email: email.trim() });
     } catch (error) {
-      console.error('Firebase auth failed', error);
-
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      if (mode === 'login') {
-        setError(`ログインに失敗しました: ${message}`);
-      } else {
-        setError(`新規登録に失敗しました: ${message}`);
-      }
+      console.log('[auth] submit error', error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : mode === 'login'
+            ? 'ログインに失敗しました。メールアドレスまたはパスワードを確認してください。'
+            : '新規登録に失敗しました。メール形式やパスワード(6文字以上)を確認してください。';
+      setError(message);
     } finally {
       console.log('Auth submit finished');
       setIsSubmitting(false);

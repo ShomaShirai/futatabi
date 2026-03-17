@@ -15,27 +15,6 @@ export type RecommendPlan = {
   category: string;
 };
 
-export type SavedPlan = {
-  id: string;
-  title: string;
-  period: string;
-  startDate: string;
-  days: number;
-  budget: number;
-  image: string;
-  route: string;
-  people: string;
-  status: 'completed' | 'upcoming';
-  highlights: string[];
-};
-
-export type Friend = {
-  id: string;
-  name: string;
-  role: string;
-  addedAt: string;
-};
-
 export type TripHistory = {
   id: string;
   title: string;
@@ -101,56 +80,6 @@ export const recommendedPlans: RecommendPlan[] = [
       'https://lh3.googleusercontent.com/aida-public/AB6AXuDlzxTBRQa5Xep8a6-CyTYH_Wdea0IUP4Y62hdJsx6sSmzKKGwsK8Z6hbHdenkZKn625MCHyNntEima16o4ZdMF2F6IRT2T9VfknpRZxsoELcY_-KDfRRQfu7PCZ5D0ie0tZgw5mCpCCzZ-oz2Co-qUUAb0ac2aepwwXB81Tislw9_9Fd-syfpcnolAt4xmLSfu7JGnsu3Pif_WXLzJ_zT05RUDuP0_3gYEi_vtNGkYM7YIjI4k3Y9kQbLAsoxjbCMN-xvsD4dOkPz7',
     category: 'グルメ',
   },
-];
-
-export const savedPlans: SavedPlan[] = [
-  {
-    id: 'plan-1',
-    title: '北部温泉巡り 2泊3日',
-    period: '2026/03/14 - 2026/03/16',
-    startDate: '2026/03/14',
-    days: 3,
-    budget: 162000,
-    image:
-      'https://images.unsplash.com/photo-1470246973918-29a93221c455?auto=format&fit=crop&w=800&q=60',
-    route: '東京 → 伊豆 → 下田 → 草津',
-    people: '大人2名',
-    status: 'upcoming',
-    highlights: ['2時間以内の移動経路', '夜景カフェ3軒追加', '温泉時間を1時間延長'],
-  },
-  {
-    id: 'plan-2',
-    title: '九州ラーメンめぐり',
-    period: '2026/01/10 - 2026/01/13',
-    startDate: '2026/01/10',
-    days: 4,
-    budget: 98000,
-    image:
-      'https://images.unsplash.com/photo-1528605248634-3fd3c9cb0f5e?auto=format&fit=crop&w=800&q=60',
-    route: '福岡 → 長崎 → 熊本',
-    people: '1名',
-    status: 'completed',
-    highlights: ['昼夜で通る名店', '新幹線指定席予約済み'],
-  },
-  {
-    id: 'plan-3',
-    title: '瀬戸内離島ドライブ',
-    period: '2026/04/05 - 2026/04/07',
-    startDate: '2026/04/05',
-    days: 2,
-    budget: 124000,
-    image:
-      'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=60',
-    route: '岡山 → 尾道 → 竹原',
-    people: '大人3名',
-    status: 'upcoming',
-    highlights: ['瀬戸大橋スケジュール', '移動時間を短縮する経路提案'],
-  },
-];
-
-export const friendsMock: Friend[] = [
-  { id: 'fr-1', name: '佐藤 亮', role: '同伴者', addedAt: '2026/02/10' },
-  { id: 'fr-2', name: '中村 里奈', role: '旅のしおり共有', addedAt: '2026/02/18' },
 ];
 
 export const tripHistoryMock = [

@@ -19,6 +19,7 @@ class Trip:
     destination: str
     start_date: date
     end_date: date
+    participant_count: int = 1
     status: str = "planned"
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -60,6 +61,7 @@ class ItineraryItem:
     id: Optional[int]
     trip_day_id: int
     name: str
+    sequence: Optional[int] = None
     category: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
@@ -107,6 +109,20 @@ class ReplanItem:
 class ReplanAggregate:
     session: ReplanSession
     items: list[ReplanItem] = field(default_factory=list)
+
+
+@dataclass
+class AiPlanGeneration:
+    id: Optional[int]
+    trip_id: int
+    status: str
+    provider: Optional[str] = None
+    prompt_version: Optional[str] = None
+    requested_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    error_message: Optional[str] = None
+    result_summary_json: Optional[str] = None
 
 
 @dataclass

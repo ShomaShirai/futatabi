@@ -1,9 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Text, View } from 'react-native';
 
+import { recommendedPlans, weatherMock } from '@/data/travel';
+import { PlanDetailTemplate } from '@/features/plan-detail/components/PlanDetailTemplate';
+import { recommendPlanDetails } from '@/features/plan-detail/data/recommend-plan-detail';
 import { AppHeader } from '@/features/travel/components/AppHeader';
-import { travelStyles } from '@/features/travel/styles';
-import { recommendedPlans, timelineMock, weatherMock } from '@/data/travel';
 
 export default function RecommendationDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -11,47 +13,39 @@ export default function RecommendationDetailScreen() {
 
   if (!plan) {
     return (
-      <View style={travelStyles.screen}>
-        <AppHeader title="おすすめ" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
-        <View style={travelStyles.container}>
-          <Text style={[travelStyles.heading, travelStyles.accentText]}>投稿が見つかりませんでした</Text>
+      <View style={{ flex: 1, backgroundColor: '#FDFDFD' }}>
+        <AppHeader title="おすすめ詳細" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#0F172A' }}>投稿が見つかりませんでした</Text>
         </View>
       </View>
     );
   }
 
+  const meta = recommendPlanDetails[plan.id];
+  const [activeDayKey, setActiveDayKey] = useState(meta.days[0]?.key ?? 'day1');
+  const activeDay = useMemo(
+    () => meta.days.find((day) => day.key === activeDayKey) ?? meta.days[0],
+    [activeDayKey, meta.days]
+  );
+
   return (
-    <ScrollView style={travelStyles.screen} contentContainerStyle={{ paddingBottom: 24 }}>
-      <AppHeader title="おすすめ詳細" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
-
-      <View style={travelStyles.container}>
-        <Image source={{ uri: plan.image }} style={{ width: '100%', height: 210, borderRadius: 16 }} />
-
-        <View style={travelStyles.detailSection}>
-          <Text style={travelStyles.heading}>{plan.title}</Text>
-          <Text style={travelStyles.sectionBody}>カテゴリ: {plan.category}</Text>
-          <Text style={travelStyles.sectionBody}>投稿者: {plan.author}</Text>
-          <Text style={travelStyles.sectionBody}>想定時間: 3時間30分</Text>
-          <Text style={travelStyles.sectionBody}>場所: {plan.location}</Text>
-        </View>
-
-        <View style={travelStyles.detailSection}>
-          <Text style={travelStyles.sectionTitleText}>行程イメージ</Text>
-          {timelineMock.slice(0, 2).map((point) => (
-            <View key={point.id} style={travelStyles.timelineRow}>
-              <Text style={travelStyles.timelineTime}>{point.time}</Text>
-              <View>
-                <Text style={travelStyles.timelineText}>{point.place}</Text>
-                <Text style={travelStyles.subheading}>{point.memo}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        <Pressable style={travelStyles.primaryButton}>
-          <Text style={travelStyles.primaryButtonText}>このプランを作成画面へ</Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+    <PlanDetailTemplate
+      headerTitle="おすすめ詳細"
+      weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
+      heroImage={plan.image}
+      heroBadge={meta.area}
+      title={plan.title}
+      subtitle={`by ${meta.username} ・ ${meta.date}`}
+      intro={meta.intro}
+      budgetLabel={meta.budget}
+      moveTimeLabel={meta.moveTime}
+      days={meta.days.map((day) => ({ key: day.key, label: day.label }))}
+      activeDayKey={activeDay.key}
+      onSelectDay={setActiveDayKey}
+      timeline={activeDay.timeline}
+      primaryActionLabel="このプランを使う"
+      secondaryActionLabel="カスタマイズする"
+    />
   );
 }

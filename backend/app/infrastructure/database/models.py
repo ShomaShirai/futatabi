@@ -43,6 +43,7 @@ class TripModel(Base):
     destination = Column(String(255), nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
+    participant_count = Column(Integer, nullable=False, default=1)
     status = Column(String(50), default="planned")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True),
@@ -108,6 +109,10 @@ class TripPreferenceModel(Base):
     transport_type = Column(String(50))
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("trip_id", name="uq_trip_preferences_trip_id"),
+    )
     
 
 class TripMemberModel(Base):
@@ -143,6 +148,10 @@ class TripDayModel(Base):
     date = Column(Date)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    __table_args__ = (
+        UniqueConstraint("trip_id", "day_number", name="uq_trip_days_trip_id_day_number"),
+    )
+
 
 class ItineraryItemModel(Base):
     """旅程スポット"""
@@ -151,6 +160,7 @@ class ItineraryItemModel(Base):
     id = Column(Integer, primary_key=True, index=True)
     trip_day_id = Column(Integer, ForeignKey("trip_days.id"), nullable=False)
     name = Column(String(255), nullable=False)
+    sequence = Column(Integer, nullable=True)
     category = Column(String(100))  # restaurant / sightseeing / hotel
     latitude = Column(Float)
     longitude = Column(Float)
@@ -203,3 +213,19 @@ class ReplanItemModel(Base):
     replacement_for_item_id = Column(Integer,
                                      ForeignKey("itinerary_items.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AiPlanGenerationModel(Base):
+    """AI itinerary generation job metadata."""
+    __tablename__ = "ai_plan_generations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False)
+    status = Column(String(20), nullable=False, default="queued")
+    provider = Column(String(100), nullable=True)
+    prompt_version = Column(String(50), nullable=True)
+    requested_at = Column(DateTime(timezone=True), server_default=func.now())
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    error_message = Column(Text, nullable=True)
+    result_summary_json = Column(Text, nullable=True)

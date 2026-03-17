@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date as dt_date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -16,8 +16,9 @@ class TripPreferenceCreate(BaseModel):
 class TripCreate(BaseModel):
     origin: str
     destination: str
-    start_date: date
-    end_date: date
+    start_date: dt_date
+    end_date: dt_date
+    participant_count: int = 1
     status: str = "planned"
     preference: Optional[TripPreferenceCreate] = None
 
@@ -25,8 +26,9 @@ class TripCreate(BaseModel):
 class TripUpdate(BaseModel):
     origin: Optional[str] = None
     destination: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    start_date: Optional[dt_date] = None
+    end_date: Optional[dt_date] = None
+    participant_count: Optional[int] = None
     status: Optional[str] = None
 
 
@@ -50,12 +52,12 @@ class TripMemberUpdate(BaseModel):
 
 class TripDayCreate(BaseModel):
     day_number: int
-    date: Optional[date] = None
+    date: Optional[dt_date] = None
 
 
 class TripDayUpdate(BaseModel):
     day_number: Optional[int] = None
-    date: Optional[date] = None
+    date: Optional[dt_date] = None
 
 
 class ItineraryItemCreate(BaseModel):
@@ -143,13 +145,35 @@ class ReplanAggregateResponse(BaseModel):
     items: list[ReplanItemResponse]
 
 
+class AiPlanGenerationCreate(BaseModel):
+    provider: Optional[str] = None
+    prompt_version: Optional[str] = None
+    run_async: bool = True
+
+
+class AiPlanGenerationResponse(BaseModel):
+    id: int
+    trip_id: int
+    status: str
+    provider: Optional[str] = None
+    prompt_version: Optional[str] = None
+    requested_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    error_message: Optional[str] = None
+    result_summary_json: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
 class TripResponse(BaseModel):
     id: int
     user_id: int
     origin: str
     destination: str
-    start_date: date
-    end_date: date
+    start_date: dt_date
+    end_date: dt_date
+    participant_count: int
     status: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -185,7 +209,7 @@ class TripDayResponse(BaseModel):
     id: int
     trip_id: int
     day_number: int
-    date: Optional[date] = None
+    date: Optional[dt_date] = None
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
