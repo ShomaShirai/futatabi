@@ -2,7 +2,7 @@ import {
   type TripDetailAggregateResponse,
   type TripDetailItineraryItemResponse,
 } from '@/features/trips/types/trip-detail';
-import { ApiError } from '@/lib/api/client';
+import { getApiErrorMessage } from '@/lib/api/client';
 
 import { type PlanDetailDay, type PlanDetailTimelineItem, type PlanDetailViewModel } from '@/features/plan-detail/types';
 
@@ -18,35 +18,23 @@ export function parseTripId(rawTripId?: string): number | null {
 }
 
 export function getTripDetailErrorMessage(error: unknown): string {
-  if (!(error instanceof ApiError)) {
-    return '計画詳細の取得に失敗しました。';
-  }
-  if (error.status === 401) {
-    return '認証が切れています。再ログイン後にお試しください。';
-  }
-  if (error.status === 403) {
-    return 'この計画を閲覧する権限がありません。';
-  }
-  if (error.status === 404) {
-    return '対象の計画が見つかりませんでした。';
-  }
-  return `計画詳細の取得に失敗しました (${error.status})`;
+  return getApiErrorMessage(error, {
+    fallback: '計画詳細の取得に失敗しました。',
+    unauthorized: '認証が切れています。再ログイン後にお試しください。',
+    forbidden: 'この計画を閲覧する権限がありません。',
+    notFound: '対象の計画が見つかりませんでした。',
+    defaultWithStatus: true,
+  });
 }
 
 export function getAiGenerationErrorMessage(error: unknown): string {
-  if (!(error instanceof ApiError)) {
-    return 'AIプラン構築の実行に失敗しました。';
-  }
-  if (error.status === 401) {
-    return '認証が切れています。再ログイン後にお試しください。';
-  }
-  if (error.status === 403) {
-    return 'この計画でAIプランを作成する権限がありません。';
-  }
-  if (error.status === 404) {
-    return '対象の計画が見つかりませんでした。';
-  }
-  return `AIプラン構築の実行に失敗しました (${error.status})`;
+  return getApiErrorMessage(error, {
+    fallback: 'AIプラン構築の実行に失敗しました。',
+    unauthorized: '認証が切れています。再ログイン後にお試しください。',
+    forbidden: 'この計画でAIプランを作成する権限がありません。',
+    notFound: '対象の計画が見つかりませんでした。',
+    defaultWithStatus: true,
+  });
 }
 
 export function toDurationLabel(start?: string | null, end?: string | null) {

@@ -1,4 +1,4 @@
-import { ApiError } from '@/lib/api/client';
+import { getApiErrorMessage } from '@/lib/api/client';
 import { type UpdateTripRequest } from '@/features/trips/types/trip-edit';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -16,19 +16,13 @@ export type EditTripPreferenceFormValues = {
 };
 
 export function getTripEditErrorMessage(error: unknown, fallback: string): string {
-  if (!(error instanceof ApiError)) {
-    return fallback;
-  }
-  if (error.status === 401) {
-    return '認証期限が切れています。再ログイン後にお試しください。';
-  }
-  if (error.status === 403) {
-    return 'このプランを編集する権限がありません。';
-  }
-  if (error.status === 404) {
-    return '対象プランが見つかりませんでした。';
-  }
-  return `${fallback} (${error.status})`;
+  return getApiErrorMessage(error, {
+    fallback,
+    unauthorized: '認証期限が切れています。再ログイン後にお試しください。',
+    forbidden: 'このプランを編集する権限がありません。',
+    notFound: '対象プランが見つかりませんでした。',
+    defaultWithStatus: true,
+  });
 }
 
 export function validateAndBuildTripBasicPayload(

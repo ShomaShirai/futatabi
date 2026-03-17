@@ -18,6 +18,37 @@ export class ApiError extends Error {
   }
 }
 
+type ApiErrorMessageOptions = {
+  fallback: string;
+  unauthorized?: string;
+  forbidden?: string;
+  notFound?: string;
+  defaultWithStatus?: boolean;
+};
+
+export function isApiError(error: unknown): error is ApiError {
+  return error instanceof ApiError;
+}
+
+export function getApiErrorMessage(error: unknown, options: ApiErrorMessageOptions): string {
+  if (!(error instanceof ApiError)) {
+    return options.fallback;
+  }
+  if (error.status === 401 && options.unauthorized) {
+    return options.unauthorized;
+  }
+  if (error.status === 403 && options.forbidden) {
+    return options.forbidden;
+  }
+  if (error.status === 404 && options.notFound) {
+    return options.notFound;
+  }
+  if (options.defaultWithStatus) {
+    return `${options.fallback} (${error.status})`;
+  }
+  return options.fallback;
+}
+
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await tokenProvider(false);
   const headers = new Headers(init.headers ?? {});
