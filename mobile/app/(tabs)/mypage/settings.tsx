@@ -3,11 +3,11 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, Text
 
 import { BackButton } from '@/components/back-button';
 import { updateMe } from '@/features/auth/api/update-me';
+import { getSettingsSaveErrorMessage } from '@/features/mypage/utils/errors';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
 import { weatherMock } from '@/data/travel';
 import { useAuth } from '@/features/auth/hooks/use-auth';
-import { ApiError } from '@/lib/api/client';
 
 export default function SettingsScreen() {
   const { backendUser, setBackendUser, refreshBackendUser } = useAuth();
@@ -53,15 +53,7 @@ export default function SettingsScreen() {
       setBackendUser(updated);
       Alert.alert('更新完了', '設定を保存しました。');
     } catch (error) {
-      if (error instanceof ApiError) {
-        if (error.status === 422) {
-          Alert.alert('入力エラー', '入力内容が不正です。');
-        } else {
-          Alert.alert('保存失敗', `設定の保存に失敗しました (${error.status})`);
-        }
-      } else {
-        Alert.alert('保存失敗', '設定の保存に失敗しました。時間をおいて再度お試しください。');
-      }
+      Alert.alert('保存失敗', getSettingsSaveErrorMessage(error));
       await refreshBackendUser();
     } finally {
       setIsSaving(false);

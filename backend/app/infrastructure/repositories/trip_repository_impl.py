@@ -45,6 +45,7 @@ class TripRepositoryImpl(TripRepository):
             destination=trip.destination,
             start_date=trip.start_date,
             end_date=trip.end_date,
+            participant_count=trip.participant_count,
             status=trip.status,
         )
         self.db.add(db_trip)
@@ -138,6 +139,7 @@ class TripRepositoryImpl(TripRepository):
         db_trip.destination = trip.destination
         db_trip.start_date = trip.start_date
         db_trip.end_date = trip.end_date
+        db_trip.participant_count = trip.participant_count
         db_trip.status = trip.status
 
         await self.db.commit()
@@ -552,6 +554,7 @@ class TripRepositoryImpl(TripRepository):
             destination=db_trip.destination,
             start_date=db_trip.start_date,
             end_date=db_trip.end_date,
+            participant_count=db_trip.participant_count,
             status=db_trip.status,
             created_at=db_trip.created_at,
             updated_at=db_trip.updated_at,

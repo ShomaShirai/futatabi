@@ -1,7 +1,10 @@
-import { type ItineraryItemResponse, type TripAggregateResponse } from '@/features/trips/types/trip-edit';
-import { ApiError } from '@/lib/api/client';
+import {
+  type TripDetailAggregateResponse,
+  type TripDetailItineraryItemResponse,
+} from '@/features/trips/types/trip-detail';
+import { getApiErrorMessage } from '@/lib/api/client';
 
-import { type PlanDetailTimelineItem } from '@/features/plan-detail/types';
+import { type PlanDetailDay, type PlanDetailTimelineItem, type PlanDetailViewModel } from '@/features/plan-detail/types';
 
 export function parseTripId(rawTripId?: string): number | null {
   if (!rawTripId) {
@@ -15,35 +18,23 @@ export function parseTripId(rawTripId?: string): number | null {
 }
 
 export function getTripDetailErrorMessage(error: unknown): string {
-  if (!(error instanceof ApiError)) {
-    return '計画詳細の取得に失敗しました。';
-  }
-  if (error.status === 401) {
-    return '認証が切れています。再ログイン後にお試しください。';
-  }
-  if (error.status === 403) {
-    return 'この計画を閲覧する権限がありません。';
-  }
-  if (error.status === 404) {
-    return '対象の計画が見つかりませんでした。';
-  }
-  return `計画詳細の取得に失敗しました (${error.status})`;
+  return getApiErrorMessage(error, {
+    fallback: '計画詳細の取得に失敗しました。',
+    unauthorized: '認証が切れています。再ログイン後にお試しください。',
+    forbidden: 'この計画を閲覧する権限がありません。',
+    notFound: '対象の計画が見つかりませんでした。',
+    defaultWithStatus: true,
+  });
 }
 
 export function getAiGenerationErrorMessage(error: unknown): string {
-  if (!(error instanceof ApiError)) {
-    return 'AIプラン構築の実行に失敗しました。';
-  }
-  if (error.status === 401) {
-    return '認証が切れています。再ログイン後にお試しください。';
-  }
-  if (error.status === 403) {
-    return 'この計画でAIプランを作成する権限がありません。';
-  }
-  if (error.status === 404) {
-    return '対象の計画が見つかりませんでした。';
-  }
-  return `AIプラン構築の実行に失敗しました (${error.status})`;
+  return getApiErrorMessage(error, {
+    fallback: 'AIプラン構築の実行に失敗しました。',
+    unauthorized: '認証が切れています。再ログイン後にお試しください。',
+    forbidden: 'この計画でAIプランを作成する権限がありません。',
+    notFound: '対象の計画が見つかりませんでした。',
+    defaultWithStatus: true,
+  });
 }
 
 export function toDurationLabel(start?: string | null, end?: string | null) {
@@ -75,7 +66,7 @@ export function toTimeLabel(value?: string | null) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
-export function budgetLabel(aggregate: TripAggregateResponse) {
+export function budgetLabel(aggregate: TripDetailAggregateResponse) {
   const budget = aggregate.preference?.budget;
   if (!budget) {
     return '未設定';
@@ -83,7 +74,7 @@ export function budgetLabel(aggregate: TripAggregateResponse) {
   return `¥${budget.toLocaleString()}`;
 }
 
-export function moveTimeLabel(items: ItineraryItemResponse[]) {
+export function moveTimeLabel(items: TripDetailItineraryItemResponse[]) {
   if (!items.length) {
     return '未設定';
   }
@@ -102,7 +93,7 @@ export function statusLabel(status: string) {
   return status;
 }
 
-export function groupItineraryByDay(aggregate: TripAggregateResponse | null) {
+export function groupItineraryByDay(aggregate: TripDetailAggregateResponse | null) {
   if (!aggregate) {
     return [];
   }
@@ -118,7 +109,7 @@ export function groupItineraryByDay(aggregate: TripAggregateResponse | null) {
       tripDayId: number;
       dayNumber?: number;
       date?: string | null;
-      items: ItineraryItemResponse[];
+      items: TripDetailItineraryItemResponse[];
     }
   >();
 
@@ -145,7 +136,7 @@ export function groupItineraryByDay(aggregate: TripAggregateResponse | null) {
     }));
 }
 
-export function toTimelineItems(items: ItineraryItemResponse[]): PlanDetailTimelineItem[] {
+export function toTimelineItems(items: TripDetailItineraryItemResponse[]): PlanDetailTimelineItem[] {
   return items.map((item) => ({
     id: item.id,
     start: toTimeLabel(item.start_time),
@@ -159,4 +150,30 @@ export function toTimelineItems(items: ItineraryItemResponse[]): PlanDetailTimel
           ? 'train'
           : 'place',
   }));
+}
+
+export function toPlanDetailViewModel(
+  aggregate: TripDetailAggregateResponse,
+  activeDayId: number | null
+): PlanDetailViewModel {
+  const groupedItineraryByDay = groupItineraryByDay(aggregate);
+  const activeDay =
+    groupedItineraryByDay.find((group) => group.tripDayId === activeDayId) ?? groupedItineraryByDay[0] ?? null;
+
+  const days: PlanDetailDay[] = groupedItineraryByDay.length
+    ? groupedItineraryByDay.map((group, index) => ({
+        key: String(group.tripDayId),
+        label: `Day ${group.dayNumber ?? index + 1}`,
+      }))
+    : [{ key: 'day1', label: 'Day 1' }];
+
+  return {
+    title: `${aggregate.trip.origin} → ${aggregate.trip.destination}`,
+    subtitle: `${aggregate.trip.start_date} - ${aggregate.trip.end_date} ・ ${statusLabel(aggregate.trip.status)}`,
+    budgetLabel: budgetLabel(aggregate),
+    moveTimeLabel: activeDay ? moveTimeLabel(activeDay.items) : '未設定',
+    days,
+    activeDayKey: activeDay ? String(activeDay.tripDayId) : 'day1',
+    timeline: activeDay ? toTimelineItems(activeDay.items) : [],
+  };
 }

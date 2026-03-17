@@ -12,14 +12,11 @@ import {
 import { weatherMock } from '@/data/travel';
 import { PlanDetailTemplate } from '@/features/plan-detail/components/PlanDetailTemplate';
 import {
-  budgetLabel,
   getAiGenerationErrorMessage,
   getTripDetailErrorMessage,
   groupItineraryByDay,
-  moveTimeLabel,
   parseTripId,
-  statusLabel,
-  toTimelineItems,
+  toPlanDetailViewModel,
 } from '@/features/plan-detail/utils/plan-detail';
 import {
   createAiPlanGeneration,
@@ -27,7 +24,7 @@ import {
 } from '@/features/trips/api/ai-plan-generation';
 import { getTripDetail } from '@/features/trips/api/get-trip-detail';
 import { type AiPlanGenerationResponse } from '@/features/trips/types/ai-plan-generation';
-import { type TripAggregateResponse } from '@/features/trips/types/trip-edit';
+import { type TripDetailAggregateResponse } from '@/features/trips/types/trip-detail';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 
 const PLAN_IMAGE_URL =
@@ -36,7 +33,7 @@ const PLAN_IMAGE_URL =
 export default function PlanDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const tripId = useMemo(() => parseTripId(id), [id]);
-  const [aggregate, setAggregate] = useState<TripAggregateResponse | null>(null);
+  const [aggregate, setAggregate] = useState<TripDetailAggregateResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [generation, setGeneration] = useState<AiPlanGenerationResponse | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -50,6 +47,11 @@ export default function PlanDetailScreen() {
     }
     return groupedItineraryByDay.find((group) => group.tripDayId === activeDayId) ?? groupedItineraryByDay[0];
   }, [activeDayId, groupedItineraryByDay]);
+
+  const detailView = useMemo(
+    () => (aggregate ? toPlanDetailViewModel(aggregate, activeDayId) : null),
+    [activeDayId, aggregate]
+  );
 
   const loadTripDetail = useCallback(async () => {
     if (!tripId) {
@@ -162,27 +164,24 @@ export default function PlanDetailScreen() {
     );
   }
 
+  if (!detailView) {
+    return null;
+  }
+
   return (
     <PlanDetailTemplate
       headerTitle="計画詳細"
       weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
       heroImage={PLAN_IMAGE_URL}
       heroBadge="LIVE MAP PREVIEW"
-      title={`${aggregate.trip.origin} → ${aggregate.trip.destination}`}
-      subtitle={`${aggregate.trip.start_date} - ${aggregate.trip.end_date} ・ ${statusLabel(aggregate.trip.status)}`}
-      budgetLabel={budgetLabel(aggregate)}
-      moveTimeLabel={activeDay ? moveTimeLabel(activeDay.items) : '未設定'}
-      days={
-        groupedItineraryByDay.length
-          ? groupedItineraryByDay.map((group, index) => ({
-              key: String(group.tripDayId),
-              label: `Day ${group.dayNumber ?? index + 1}`,
-            }))
-          : [{ key: 'day1', label: 'Day 1' }]
-      }
-      activeDayKey={activeDay ? String(activeDay.tripDayId) : 'day1'}
+      title={detailView.title}
+      subtitle={detailView.subtitle}
+      budgetLabel={detailView.budgetLabel}
+      moveTimeLabel={detailView.moveTimeLabel}
+      days={detailView.days}
+      activeDayKey={detailView.activeDayKey}
       onSelectDay={(dayKey) => setActiveDayId(Number(dayKey))}
-      timeline={activeDay ? toTimelineItems(activeDay.items) : []}
+      timeline={detailView.timeline}
       primaryActionLabel="このプランにする"
       primaryActionSlot={
         <Link href={{ pathname: '/create/edit', params: { tripId: String(tripId) } }} asChild>

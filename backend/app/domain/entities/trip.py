@@ -19,6 +19,7 @@ class Trip:
     destination: str
     start_date: date
     end_date: date
+    participant_count: int = 1
     status: str = "planned"
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

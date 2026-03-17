@@ -56,6 +56,7 @@ async def create_trip(
         destination=payload.destination,
         start_date=payload.start_date,
         end_date=payload.end_date,
+        participant_count=payload.participant_count,
         status=payload.status,
     )
 
@@ -70,8 +71,11 @@ async def create_trip(
             transport_type=payload.preference.transport_type,
         )
 
-    aggregate = await trip_service.create_trip(current_user.id, trip, preference)
-    return _to_aggregate_response(aggregate)
+    try:
+        aggregate = await trip_service.create_trip(current_user.id, trip, preference)
+        return _to_aggregate_response(aggregate)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
 
 @router.get("/", response_model=list[TripResponse])
@@ -114,6 +118,8 @@ async def update_trip(
             **payload.model_dump(exclude_unset=True),
         )
         return TripResponse.model_validate(updated_trip)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
     except TripNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except PermissionDeniedError as e:

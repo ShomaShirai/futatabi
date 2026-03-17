@@ -20,8 +20,12 @@ import { uploadProfileImage } from '@/features/auth/api/upload-profile-image';
 import { getMyProfileImageBinary } from '@/features/auth/api/get-profile-image-binary';
 import { createFriendRequest } from '@/features/friends/api/create-friend-request';
 import { getIncomingFriendRequests } from '@/features/friends/api/get-incoming-friend-requests';
+import {
+  getFriendRequestCreateErrorMessage,
+  getUploadProfileImageErrorMessage,
+  isNotFoundApiError,
+} from '@/features/mypage/utils/errors';
 import { AppHeader } from '@/features/travel/components/AppHeader';
-import { ApiError } from '@/lib/api/client';
 import { travelStyles } from '@/features/travel/styles';
 import { weatherMock } from '@/data/travel';
 import { useAuth } from '@/features/auth/hooks/use-auth';
@@ -60,7 +64,7 @@ export default function MyPageScreen() {
       setDidRetryProfileImage(false);
       setIsAvatarLoadError(false);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
+      if (isNotFoundApiError(error)) {
         setProfileImageDataUri(null);
         return;
       }
@@ -119,18 +123,10 @@ export default function MyPageScreen() {
       setFriendUserIdInput('');
       await loadIncomingRequestCount();
     } catch (error) {
-      if (error instanceof ApiError) {
-        if (error.status === 400) {
-          Alert.alert('送信失敗', '自分自身にはフレンド申請できません。');
-        } else if (error.status === 404) {
-          Alert.alert('送信失敗', '指定したユーザーが見つかりません。');
-        } else if (error.status === 409) {
-          Alert.alert('送信失敗', 'すでに申請済み、またはフレンド関係があります。');
-        } else {
-          Alert.alert('送信失敗', `フレンド申請に失敗しました (${error.status})`);
-        }
+      if (isNotFoundApiError(error)) {
+        Alert.alert('送信失敗', '指定したユーザーが見つかりません。');
       } else {
-        Alert.alert('送信失敗', '通信エラーが発生しました。時間をおいて再度お試しください。');
+        Alert.alert('送信失敗', getFriendRequestCreateErrorMessage(error));
       }
     } finally {
       setIsSendingFriendRequest(false);
@@ -181,11 +177,7 @@ export default function MyPageScreen() {
       await loadProfileImageDataUri();
       Alert.alert('完了', 'プロフィール画像を更新しました。');
     } catch (error) {
-      if (error instanceof ApiError) {
-        Alert.alert('エラー', `アップロードに失敗しました (${error.status})`);
-      } else {
-        Alert.alert('エラー', 'アップロードに失敗しました。時間をおいて再度お試しください。');
-      }
+      Alert.alert('エラー', getUploadProfileImageErrorMessage(error));
     } finally {
       setIsUploadingImage(false);
     }

@@ -1,0 +1,241 @@
+BEGIN;
+
+CREATE TABLE alembic_version (
+    version_num VARCHAR(32) NOT NULL, 
+    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+);
+
+-- Running upgrade  -> 8f9a50ba4357
+
+INSERT INTO alembic_version (version_num) VALUES ('8f9a50ba4357') RETURNING alembic_version.version_num;
+
+-- Running upgrade 8f9a50ba4357 -> b6d6b4a40df7
+
+CREATE TABLE users (
+    id SERIAL NOT NULL, 
+    email VARCHAR NOT NULL, 
+    username VARCHAR NOT NULL, 
+    hashed_password VARCHAR NOT NULL, 
+    is_active BOOLEAN, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    updated_at TIMESTAMP WITH TIME ZONE, 
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX ix_users_email ON users (email);
+
+CREATE INDEX ix_users_id ON users (id);
+
+CREATE UNIQUE INDEX ix_users_username ON users (username);
+
+CREATE TABLE trips (
+    id SERIAL NOT NULL, 
+    user_id INTEGER NOT NULL, 
+    origin VARCHAR(255) NOT NULL, 
+    destination VARCHAR(255) NOT NULL, 
+    start_date DATE NOT NULL, 
+    end_date DATE NOT NULL, 
+    status VARCHAR(50), 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(user_id) REFERENCES users (id)
+);
+
+CREATE INDEX ix_trips_id ON trips (id);
+
+CREATE TABLE incidents (
+    id SERIAL NOT NULL, 
+    trip_id INTEGER NOT NULL, 
+    incident_type VARCHAR(50), 
+    description TEXT, 
+    occurred_at TIMESTAMP WITHOUT TIME ZONE, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(trip_id) REFERENCES trips (id)
+);
+
+CREATE INDEX ix_incidents_id ON incidents (id);
+
+CREATE TABLE trip_days (
+    id SERIAL NOT NULL, 
+    trip_id INTEGER NOT NULL, 
+    day_number INTEGER NOT NULL, 
+    date DATE, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(trip_id) REFERENCES trips (id)
+);
+
+CREATE INDEX ix_trip_days_id ON trip_days (id);
+
+CREATE TABLE trip_members (
+    id SERIAL NOT NULL, 
+    trip_id INTEGER NOT NULL, 
+    user_id INTEGER NOT NULL, 
+    role VARCHAR(50) NOT NULL, 
+    status VARCHAR(50) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(trip_id) REFERENCES trips (id) ON DELETE CASCADE, 
+    FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_trip_members_trip_id_user_id UNIQUE (trip_id, user_id)
+);
+
+CREATE INDEX ix_trip_members_id ON trip_members (id);
+
+CREATE TYPE trip_atmosphere_enum AS ENUM ('RELAXED', 'ACTIVE', 'GOURMET', 'INSTAGENIC');
+
+CREATE TABLE trip_preferences (
+    id SERIAL NOT NULL, 
+    trip_id INTEGER NOT NULL, 
+    atmosphere trip_atmosphere_enum NOT NULL, 
+    companions VARCHAR(50), 
+    budget INTEGER, 
+    transport_type VARCHAR(50), 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(trip_id) REFERENCES trips (id)
+);
+
+CREATE INDEX ix_trip_preferences_id ON trip_preferences (id);
+
+CREATE TABLE itinerary_items (
+    id SERIAL NOT NULL, 
+    trip_day_id INTEGER NOT NULL, 
+    name VARCHAR(255) NOT NULL, 
+    category VARCHAR(100), 
+    latitude FLOAT, 
+    longitude FLOAT, 
+    start_time TIMESTAMP WITHOUT TIME ZONE, 
+    end_time TIMESTAMP WITHOUT TIME ZONE, 
+    estimated_cost INTEGER, 
+    notes TEXT, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(trip_day_id) REFERENCES trip_days (id)
+);
+
+CREATE INDEX ix_itinerary_items_id ON itinerary_items (id);
+
+CREATE TABLE replan_sessions (
+    id SERIAL NOT NULL, 
+    trip_id INTEGER NOT NULL, 
+    incident_id INTEGER, 
+    reason TEXT, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(incident_id) REFERENCES incidents (id), 
+    FOREIGN KEY(trip_id) REFERENCES trips (id)
+);
+
+CREATE INDEX ix_replan_sessions_id ON replan_sessions (id);
+
+CREATE TABLE replan_items (
+    id SERIAL NOT NULL, 
+    replan_session_id INTEGER NOT NULL, 
+    name VARCHAR(255) NOT NULL, 
+    category VARCHAR(100), 
+    latitude FLOAT, 
+    longitude FLOAT, 
+    start_time TIMESTAMP WITHOUT TIME ZONE, 
+    estimated_cost INTEGER, 
+    replacement_for_item_id INTEGER, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(replacement_for_item_id) REFERENCES itinerary_items (id), 
+    FOREIGN KEY(replan_session_id) REFERENCES replan_sessions (id)
+);
+
+CREATE INDEX ix_replan_items_id ON replan_items (id);
+
+UPDATE alembic_version SET version_num='b6d6b4a40df7' WHERE alembic_version.version_num = '8f9a50ba4357';
+
+-- Running upgrade b6d6b4a40df7 -> 3e6f97f830a1
+
+ALTER TABLE users ADD COLUMN firebase_uid VARCHAR;
+
+CREATE UNIQUE INDEX ix_users_firebase_uid ON users (firebase_uid);
+
+UPDATE alembic_version SET version_num='3e6f97f830a1' WHERE alembic_version.version_num = 'b6d6b4a40df7';
+
+-- Running upgrade 3e6f97f830a1 -> 0c36f06f0f77
+
+ALTER TABLE users DROP COLUMN hashed_password;
+
+UPDATE alembic_version SET version_num='0c36f06f0f77' WHERE alembic_version.version_num = '3e6f97f830a1';
+
+-- Running upgrade 0c36f06f0f77 -> 9f2a8b7c1d4e
+
+ALTER TABLE users ADD COLUMN profile_image_url VARCHAR;
+
+ALTER TABLE users ADD COLUMN nearest_station VARCHAR;
+
+UPDATE alembic_version SET version_num='9f2a8b7c1d4e' WHERE alembic_version.version_num = '0c36f06f0f77';
+
+-- Running upgrade 9f2a8b7c1d4e -> c1a7b8d9e2f3
+
+CREATE TABLE friends (
+    id SERIAL NOT NULL, 
+    requester_user_id INTEGER NOT NULL, 
+    addressee_user_id INTEGER NOT NULL, 
+    status VARCHAR(20) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    PRIMARY KEY (id), 
+    CONSTRAINT ck_friends_not_self CHECK (requester_user_id <> addressee_user_id), 
+    FOREIGN KEY(addressee_user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    FOREIGN KEY(requester_user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_friends_requester_addressee UNIQUE (requester_user_id, addressee_user_id)
+);
+
+CREATE INDEX ix_friends_id ON friends (id);
+
+CREATE INDEX ix_friends_requester_user_id ON friends (requester_user_id);
+
+CREATE INDEX ix_friends_addressee_user_id ON friends (addressee_user_id);
+
+CREATE INDEX ix_friends_status ON friends (status);
+
+UPDATE alembic_version SET version_num='c1a7b8d9e2f3' WHERE alembic_version.version_num = '9f2a8b7c1d4e';
+
+-- Running upgrade c1a7b8d9e2f3 -> d4f1a8c9b2e3
+
+ALTER TABLE itinerary_items ADD COLUMN sequence INTEGER;
+
+ALTER TABLE trip_preferences ADD CONSTRAINT uq_trip_preferences_trip_id UNIQUE (trip_id);
+
+ALTER TABLE trip_days ADD CONSTRAINT uq_trip_days_trip_id_day_number UNIQUE (trip_id, day_number);
+
+CREATE TABLE ai_plan_generations (
+    id SERIAL NOT NULL, 
+    trip_id INTEGER NOT NULL, 
+    status VARCHAR(20) NOT NULL, 
+    provider VARCHAR(100), 
+    prompt_version VARCHAR(50), 
+    requested_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+    started_at TIMESTAMP WITH TIME ZONE, 
+    finished_at TIMESTAMP WITH TIME ZONE, 
+    error_message TEXT, 
+    result_summary_json TEXT, 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(trip_id) REFERENCES trips (id)
+);
+
+CREATE INDEX ix_ai_plan_generations_id ON ai_plan_generations (id);
+
+UPDATE alembic_version SET version_num='d4f1a8c9b2e3' WHERE alembic_version.version_num = 'c1a7b8d9e2f3';
+
+-- Running upgrade d4f1a8c9b2e3 -> e5b7c2a1d9f4
+
+ALTER TABLE trips ADD COLUMN participant_count INTEGER;
+
+UPDATE trips SET participant_count = 1 WHERE participant_count IS NULL;
+
+ALTER TABLE trips ALTER COLUMN participant_count SET NOT NULL;
+
+UPDATE alembic_version SET version_num='e5b7c2a1d9f4' WHERE alembic_version.version_num = 'd4f1a8c9b2e3';
+
+COMMIT;
+

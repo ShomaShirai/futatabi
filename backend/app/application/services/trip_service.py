@@ -41,6 +41,8 @@ class TripService:
         trip: Trip,
         preference: Optional[TripPreference] = None,
     ) -> TripAggregate:
+        if trip.participant_count < 1:
+            raise ValueError("participant_count must be greater than or equal to 1")
         trip.user_id = user_id
         return await self.trip_repository.create_trip(trip, preference)
 
@@ -58,6 +60,10 @@ class TripService:
     async def update_my_trip(self, user_id: int, trip_id: int, **kwargs) -> Trip:
         aggregate = await self.get_my_trip_detail(user_id=user_id, trip_id=trip_id)
         trip = aggregate.trip
+
+        if "participant_count" in kwargs and kwargs["participant_count"] is not None:
+            if kwargs["participant_count"] < 1:
+                raise ValueError("participant_count must be greater than or equal to 1")
 
         for key, value in kwargs.items():
             if value is not None and hasattr(trip, key):

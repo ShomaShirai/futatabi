@@ -18,6 +18,7 @@ class TripCreate(BaseModel):
     destination: str
     start_date: dt_date
     end_date: dt_date
+    participant_count: int = 1
     status: str = "planned"
     preference: Optional[TripPreferenceCreate] = None
 
@@ -27,6 +28,7 @@ class TripUpdate(BaseModel):
     destination: Optional[str] = None
     start_date: Optional[dt_date] = None
     end_date: Optional[dt_date] = None
+    participant_count: Optional[int] = None
     status: Optional[str] = None
 
 
@@ -171,6 +173,7 @@ class TripResponse(BaseModel):
     destination: str
     start_date: dt_date
     end_date: dt_date
+    participant_count: int
     status: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
