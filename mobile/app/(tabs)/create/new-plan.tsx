@@ -2,9 +2,9 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { weatherMock } from '@/data/travel';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
-import { weatherMock } from '@/data/travel';
 import { createTrip } from '@/features/trips/api/create-trip';
 
 const formItems = [
@@ -96,15 +96,15 @@ export default function PlanCreateScreen() {
         status: 'planned',
         preference: budget
           ? {
-              atmosphere: 'のんびり',
-              budget,
-            }
+            atmosphere: 'のんびり',
+            budget,
+          }
           : undefined,
       });
       Alert.alert('保存完了', '新規プランを作成しました。');
       router.replace({
-        pathname: '/create/edit',
-        params: { tripId: String(created.trip.id) },
+        pathname: '/plans/detail',
+        params: { id: String(created.trip.id) },
       });
     } catch {
       Alert.alert('作成失敗', 'プラン作成に失敗しました。ログイン状態やAPI接続を確認してください。');
@@ -148,7 +148,7 @@ export default function PlanCreateScreen() {
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={travelStyles.primaryButtonText}>下書きを保存して編集へ進む</Text>
+            <Text style={travelStyles.primaryButtonText}>プランを保存して詳細を見る</Text>
           )}
         </Pressable>
       </View>

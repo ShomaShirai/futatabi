@@ -18,8 +18,8 @@ export const endpoints = {
     },
   },
   trips: {
-    create: '/trips',
-    list: '/trips',
+    create: '/trips/',
+    list: '/trips/',
     detail: (tripId: number | string) => `/trips/${tripId}`,
     update: (tripId: number | string) => `/trips/${tripId}`,
     preference: {
