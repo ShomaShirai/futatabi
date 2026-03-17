@@ -17,17 +17,22 @@ export default function LoginScreen() {
     setError(null);
     setIsSubmitting(true);
     try {
+      console.log('[auth] submit start', { mode, email: email.trim() });
       if (mode === 'login') {
         await signIn(email.trim(), password);
       } else {
         await signUp(email.trim(), password);
       }
-    } catch {
-      if (mode === 'login') {
-        setError('ログインに失敗しました。メールアドレスまたはパスワードを確認してください。');
-      } else {
-        setError('新規登録に失敗しました。メール形式やパスワード(6文字以上)を確認してください。');
-      }
+      console.log('[auth] submit success', { mode, email: email.trim() });
+    } catch (error) {
+      console.log('[auth] submit error', error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : mode === 'login'
+            ? 'ログインに失敗しました。メールアドレスまたはパスワードを確認してください。'
+            : '新規登録に失敗しました。メール形式やパスワード(6文字以上)を確認してください。';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }

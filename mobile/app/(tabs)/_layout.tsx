@@ -32,9 +32,9 @@ export default function TabLayout() {
           tabBarInactiveTintColor: '#64748B',
           tabBarButton: HapticTab,
           tabBarStyle: {
-            height: 84,
+            height: 60,
             paddingTop: 2,
-            paddingBottom: 24,
+            paddingBottom: 2,
             backgroundColor: '#FFFFFF',
             borderTopColor: '#E2E8F0',
             overflow: 'visible',

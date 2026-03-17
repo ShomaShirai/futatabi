@@ -1,41 +1,54 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { AppHeader } from '@/features/travel/components/AppHeader';
 import { recommendedPlans, weatherMock } from '@/data/travel';
+import { AppHeader } from '@/features/travel/components/AppHeader';
 
-const categories = ['すべて', 'カフェ', '夜景', 'グルメ', '温泉'];
+const categories = ['すべて', 'カフェ', '夜景', 'グルメ', '温泉'] as const;
 
 export default function RecommendationListScreen() {
+  const [activeCategory, setActiveCategory] = useState<(typeof categories)[number]>('すべて');
+
+  const filteredPlans = useMemo(() => {
+    if (activeCategory === 'すべて') {
+      return recommendedPlans;
+    }
+    return recommendedPlans.filter((plan) => plan.category === activeCategory);
+  }, [activeCategory]);
+
   return (
     <View style={styles.screen}>
       <AppHeader title="おすすめ" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
 
-      <View style={styles.categoryBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryContent}>
-          {categories.map((category, index) => (
-            <Pressable key={category} style={styles.categoryTab}>
-              <Text style={[styles.categoryText, index === 0 ? styles.categoryTextActive : null]}>{category}</Text>
-              <View style={[styles.categoryUnderline, index === 0 ? styles.categoryUnderlineActive : null]} />
-            </Pressable>
-          ))}
+      <View style={styles.categoryWrap}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+          {categories.map((category) => {
+            const active = category === activeCategory;
+            return (
+              <Pressable key={category} style={styles.categoryButton} onPress={() => setActiveCategory(category)}>
+                <Text style={[styles.categoryText, active && styles.categoryTextActive]}>{category}</Text>
+                <View style={[styles.categoryUnderline, active && styles.categoryUnderlineActive]} />
+              </Pressable>
+            );
+          })}
         </ScrollView>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {recommendedPlans.map((plan) => (
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+        {filteredPlans.map((plan) => (
           <Link key={plan.id} href={{ pathname: '/recommend/detail', params: { id: plan.id } }} asChild>
             <Pressable style={styles.card}>
               <View style={styles.imageWrap}>
-                <Image source={{ uri: plan.image }} style={styles.image} />
+                <Image source={{ uri: plan.image }} style={styles.cardImage} />
                 <View style={styles.locationTag}>
                   <Text style={styles.locationTagText}>{plan.location}</Text>
                 </View>
               </View>
 
               <View style={styles.cardBody}>
-                <View style={styles.cardHeader}>
+                <View style={styles.titleRow}>
                   <Text style={styles.cardTitle}>{plan.title}</Text>
                   <MaterialIcons name="more-vert" size={20} color="#94A3B8" />
                 </View>
@@ -44,12 +57,10 @@ export default function RecommendationListScreen() {
                   <View style={styles.avatar}>
                     <MaterialIcons name="person" size={16} color="#EC5B13" />
                   </View>
-                  <View style={styles.authorCopy}>
-                    <Text style={styles.authorName}>{plan.author}</Text>
-                  </View>
-                  <View style={styles.likeRow}>
-                    <MaterialIcons name="favorite" size={20} color="#EC5B13" />
-                    <Text style={styles.likeText}>{plan.likes.toLocaleString()}</Text>
+                  <Text style={styles.authorText}>{plan.author}</Text>
+                  <View style={styles.likesWrap}>
+                    <MaterialIcons name="favorite" size={18} color="#EC5B13" />
+                    <Text style={styles.likesText}>{plan.likes.toLocaleString()}</Text>
                   </View>
                 </View>
 
@@ -70,140 +81,135 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F6F6',
   },
-  categoryBar: {
+  categoryWrap: {
     backgroundColor: '#F8F6F6',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
-  categoryContent: {
+  categoryScroll: {
     paddingHorizontal: 16,
-    gap: 24,
+    gap: 22,
   },
-  categoryTab: {
+  categoryButton: {
     alignItems: 'center',
     paddingTop: 14,
-    paddingBottom: 10,
   },
   categoryText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#64748B',
   },
   categoryTextActive: {
     color: '#EC5B13',
-    fontWeight: '800',
+    fontWeight: '700',
   },
   categoryUnderline: {
     marginTop: 10,
-    height: 2,
     width: '100%',
+    height: 2,
     backgroundColor: 'transparent',
   },
   categoryUnderlineActive: {
     backgroundColor: '#EC5B13',
   },
-  scroll: {
+  content: {
     flex: 1,
   },
-  content: {
+  contentContainer: {
     padding: 16,
-    paddingBottom: 28,
-    gap: 24,
+    paddingBottom: 24,
+    gap: 22,
   },
   card: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
     shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   imageWrap: {
     position: 'relative',
+  },
+  cardImage: {
     width: '100%',
     aspectRatio: 1,
     backgroundColor: '#E2E8F0',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
   },
   locationTag: {
     position: 'absolute',
     top: 12,
     right: 12,
-    borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.92)',
   },
   locationTagText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#EC5B13',
   },
   cardBody: {
     padding: 16,
     gap: 14,
   },
-  cardHeader: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 8,
   },
   cardTitle: {
     flex: 1,
     fontSize: 20,
     lineHeight: 26,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#0F172A',
   },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   avatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(236, 91, 19, 0.1)',
+    backgroundColor: '#FFF1E8',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  authorCopy: {
+  authorText: {
     flex: 1,
-  },
-  authorName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#334155',
   },
-  likeRow: {
+  likesWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  likeText: {
+  likesText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#64748B',
   },
   detailButton: {
-    minHeight: 44,
+    height: 44,
     borderRadius: 12,
     backgroundColor: '#EC5B13',
     alignItems: 'center',
     justifyContent: 'center',
   },
   detailButtonText: {
-    fontSize: 14,
-    fontWeight: '800',
     color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

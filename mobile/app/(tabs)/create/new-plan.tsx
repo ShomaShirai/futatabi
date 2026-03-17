@@ -103,8 +103,8 @@ export default function PlanCreateScreen() {
       });
       Alert.alert('保存完了', '新規プランを作成しました。');
       router.replace({
-        pathname: '/create/edit',
-        params: { tripId: String(created.trip.id) },
+        pathname: '/plans/detail',
+        params: { id: String(created.trip.id) },
       });
     } catch {
       Alert.alert('作成失敗', 'プラン作成に失敗しました。ログイン状態やAPI接続を確認してください。');
