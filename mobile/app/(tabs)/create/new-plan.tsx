@@ -20,8 +20,8 @@ const formItems = [
   },
   {
     key: 'destination',
-    label: '目的地',
-    placeholder: '例: 札幌',
+    label: '目的地（都市・エリア）',
+    placeholder: '例: 京都 / 札幌 / 箱根 / 那覇',
   },
   {
     key: 'startDate',
@@ -44,6 +44,8 @@ const formItems = [
     placeholder: '例: 120000',
   },
 ] as const;
+
+const destinationSuggestions = ['東京', '大阪', '京都', '札幌', '福岡', '那覇', '箱根', '軽井沢'] as const;
 
 export default function PlanCreateScreen() {
   const router = useRouter();
@@ -138,7 +140,7 @@ export default function PlanCreateScreen() {
         {formItems.map((item) => (
           <View key={item.key}>
             <View style={travelStyles.rowWrap}>
-              <Text style={[travelStyles.sectionBody, { fontWeight: '700' }]}>{item.label}</Text>
+              <Text style={[travelStyles.sectionBody, styles.fieldLabel]}>{item.label}</Text>
               {item.key === 'origin' ? (
                 <Pressable
                   style={[
@@ -166,6 +168,29 @@ export default function PlanCreateScreen() {
               keyboardType={item.key === 'budget' || item.key === 'participantCount' ? 'numeric' : 'default'}
               autoCapitalize="none"
             />
+            {item.key === 'destination' ? (
+              <View style={styles.destinationSuggestionWrap}>
+                {destinationSuggestions.map((suggestion) => {
+                  const isSelected = fields.destination.trim() === suggestion;
+                  return (
+                    <Pressable
+                      key={suggestion}
+                      style={[styles.destinationSuggestionChip, isSelected ? styles.destinationSuggestionChipSelected : null]}
+                      onPress={() => updateField('destination', suggestion)}
+                    >
+                      <Text
+                        style={[
+                          styles.destinationSuggestionText,
+                          isSelected ? styles.destinationSuggestionTextSelected : null,
+                        ]}
+                      >
+                        {suggestion}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
           </View>
         ))}
 
@@ -192,10 +217,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 7,
   },
+  fieldLabel: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
   currentLocationButtonDisabled: {
     opacity: 0.7,
   },
   currentLocationButtonText: {
     color: '#F97316',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  destinationSuggestionWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  destinationSuggestionChip: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  destinationSuggestionChipSelected: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FDBA74',
+  },
+  destinationSuggestionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  destinationSuggestionTextSelected: {
+    color: '#EA580C',
   },
 });
