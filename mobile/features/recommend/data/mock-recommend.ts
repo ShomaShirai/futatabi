@@ -8,7 +8,7 @@ export function getMockRecommendPlans(): RecommendPlanListItem[] {
     title: plan.title,
     location: plan.location,
     author: plan.author,
-    likes: plan.likes,
+    saveCount: plan.likes,
     image: plan.image,
     category: plan.category,
   }));

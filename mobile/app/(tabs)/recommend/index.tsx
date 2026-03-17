@@ -93,8 +93,8 @@ export default function RecommendationListScreen() {
                   </View>
                   <Text style={styles.authorText}>{plan.author}</Text>
                   <View style={styles.likesWrap}>
-                    <MaterialIcons name="favorite" size={18} color="#EC5B13" />
-                    <Text style={styles.likesText}>{plan.likes.toLocaleString()}</Text>
+                    <MaterialIcons name="bookmark" size={18} color="#EC5B13" />
+                    <Text style={styles.likesText}>保存 {plan.saveCount.toLocaleString()}</Text>
                   </View>
                 </View>
 

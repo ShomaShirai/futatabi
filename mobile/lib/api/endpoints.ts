@@ -20,12 +20,14 @@ export const endpoints = {
   recommendations: {
     list: '/recommendations/',
     detail: (recommendationId: number | string) => `/recommendations/${recommendationId}`,
+    clone: (recommendationId: number | string) => `/recommendations/${recommendationId}/clone`,
   },
   trips: {
     create: '/trips/',
     list: '/trips/',
     detail: (tripId: number | string) => `/trips/${tripId}`,
     update: (tripId: number | string) => `/trips/${tripId}`,
+    delete: (tripId: number | string) => `/trips/${tripId}`,
     preference: {
       upsert: (tripId: number | string) => `/trips/${tripId}/preference`,
     },

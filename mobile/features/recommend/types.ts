@@ -7,7 +7,7 @@ export type RecommendPlanListItem = {
   title: string;
   location: string;
   author: string;
-  likes: number;
+  saveCount: number;
   image: string;
   category: string;
 };
