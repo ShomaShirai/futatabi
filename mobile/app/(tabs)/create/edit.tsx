@@ -47,6 +47,7 @@ export default function TripEditScreen() {
   const [destination, setDestination] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [participantCount, setParticipantCount] = useState('1');
 
   const [atmosphere, setAtmosphere] = useState<TripAtmosphere>('のんびり');
   const [budget, setBudget] = useState('');
@@ -67,6 +68,7 @@ export default function TripEditScreen() {
     setDestination(detail.trip.destination);
     setStartDate(detail.trip.start_date);
     setEndDate(detail.trip.end_date);
+    setParticipantCount(String(detail.trip.participant_count ?? 1));
 
     setAtmosphere(detail.preference?.atmosphere ?? 'のんびり');
     setBudget(detail.preference?.budget ? String(detail.preference.budget) : '');
@@ -118,6 +120,7 @@ export default function TripEditScreen() {
       destination,
       startDate,
       endDate,
+      participantCount,
     });
     if (!result.ok) {
       Alert.alert('入力エラー', result.message);
@@ -256,6 +259,7 @@ export default function TripEditScreen() {
           <TextInput style={travelStyles.input} value={destination} onChangeText={setDestination} placeholder="目的地" />
           <TextInput style={travelStyles.input} value={startDate} onChangeText={setStartDate} placeholder="開始日 (YYYY-MM-DD)" />
           <TextInput style={travelStyles.input} value={endDate} onChangeText={setEndDate} placeholder="終了日 (YYYY-MM-DD)" />
+          <TextInput style={travelStyles.input} value={participantCount} onChangeText={setParticipantCount} placeholder="人数" keyboardType="number-pad" />
           <Pressable
             style={[travelStyles.primaryButton, isSavingBasic ? { opacity: 0.6 } : null]}
             onPress={handleSaveBasic}

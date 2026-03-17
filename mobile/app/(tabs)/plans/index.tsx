@@ -149,6 +149,7 @@ export default function PlansListScreen() {
         startDate: startDateFilter,
         endDate: endDateFilter,
         sortOrder,
+        participantCount: peopleFilter,
       }),
     [endDateFilter, keyword, planItems, sortOrder, startDateFilter]
   );

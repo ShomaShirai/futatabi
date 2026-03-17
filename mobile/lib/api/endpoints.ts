@@ -17,6 +17,10 @@ export const endpoints = {
       requestsUpdate: (requestId: number | string) => `/users/me/friends/requests/${requestId}`,
     },
   },
+  recommendations: {
+    list: '/recommendations/',
+    detail: (recommendationId: number | string) => `/recommendations/${recommendationId}`,
+  },
   trips: {
     create: '/trips/',
     list: '/trips/',
