@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -183,17 +184,25 @@ export default function PlanDetailScreen() {
       activeDayKey={detailView.activeDayKey}
       onSelectDay={(dayKey) => setActiveDayId(Number(dayKey))}
       timeline={detailView.timeline}
-      primaryActionLabel="このプランにする"
       primaryActionSlot={
-        <Link href={{ pathname: '/create/edit', params: { tripId: String(tripId) } }} asChild>
-          <Pressable style={{ height: 54, borderRadius: 18, backgroundColor: '#EC5B13', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>このプランにする</Text>
+        <View style={styles.actionRow}>
+          <Link href={{ pathname: '/create/edit', params: { tripId: String(tripId) } }} asChild>
+            <Pressable style={[styles.actionButton, styles.actionButtonOrange]}>
+              <MaterialIcons name="edit-note" size={22} color="#FFFFFF" />
+              <Text style={styles.actionButtonText}>マイプランを{'\n'}編集する</Text>
+            </Pressable>
+          </Link>
+
+          <Pressable
+            style={[styles.actionButton, isGenerating ? styles.actionButtonGray : styles.actionButtonOrange]}
+            onPress={handleGenerateAiPlan}
+            disabled={isGenerating}
+          >
+            <MaterialIcons name="auto-awesome" size={22} color="#FFFFFF" />
+            <Text style={styles.actionButtonText}>{isGenerating ? 'AIで再構築中...' : `AIで再構築\nする`}</Text>
           </Pressable>
-        </Link>
+        </View>
       }
-      secondaryActionLabel={isGenerating ? 'AIで再構築中...' : 'カスタマイズする'}
-      onSecondaryAction={handleGenerateAiPlan}
-      secondaryActionDisabled={isGenerating}
       footerSlot={
         generation ? (
           <View style={{ borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', padding: 14, gap: 6 }}>
@@ -227,5 +236,32 @@ const styles = StyleSheet.create({
   centerBody: {
     fontSize: 14,
     color: '#64748B',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    minHeight: 88,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  actionButtonOrange: {
+    backgroundColor: '#EC5B13',
+  },
+  actionButtonGray: {
+    backgroundColor: '#94A3B8',
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });
