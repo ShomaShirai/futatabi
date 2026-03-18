@@ -77,11 +77,7 @@ async function fetchCurrentWeather(): Promise<WeatherDisplay | null> {
   }
 
   weatherRequest = (async () => {
-    const existingPermission = await Location.getForegroundPermissionsAsync();
-    const permission =
-      existingPermission.status === 'granted' || existingPermission.canAskAgain === false
-        ? existingPermission
-        : await Location.requestForegroundPermissionsAsync();
+    const permission = await Location.getForegroundPermissionsAsync();
 
     if (permission.status !== 'granted') {
       return null;
