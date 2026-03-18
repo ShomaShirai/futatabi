@@ -10,6 +10,9 @@ export type TripResponse = {
   start_date: string;
   end_date: string;
   participant_count: number;
+  source_trip_id?: number | null;
+  counts_as_saved_recommendation?: boolean;
+  recommendation_categories?: string[] | null;
   status: string;
   created_at?: string | null;
   updated_at?: string | null;
@@ -71,6 +74,7 @@ export type UpdateTripRequest = {
   start_date?: string;
   end_date?: string;
   participant_count?: number;
+  recommendation_categories?: string[];
   status?: TripStatus;
 };
 

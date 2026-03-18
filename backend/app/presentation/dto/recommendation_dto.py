@@ -6,11 +6,13 @@ from pydantic import BaseModel
 class RecommendationListResponse(BaseModel):
     id: int
     title: str
-    location: str
-    author: str
+    date_label: str
+    participant_count: int
     save_count: int
+    is_saved_by_me: bool
+    saved_trip_id: Optional[int] = None
+    categories: list[str]
     image: str
-    category: str
 
 
 class RecommendationTimelineItemResponse(BaseModel):
@@ -38,6 +40,8 @@ class RecommendationDetailResponse(BaseModel):
     intro: str
     budget: str
     move_time: str
+    is_saved_by_me: bool
+    saved_trip_id: Optional[int] = None
     days: list[RecommendationDayResponse]
 
 
@@ -46,4 +50,8 @@ class RecommendationCloneRequest(BaseModel):
 
 
 class RecommendationCloneResponse(BaseModel):
+    trip_id: int
+
+
+class RecommendationConfirmSaveResponse(BaseModel):
     trip_id: int

@@ -5,11 +5,14 @@ export type RecommendCategory = 'すべて' | 'カフェ' | '夜景' | 'グル�
 export type RecommendPlanListItem = {
   id: string;
   title: string;
-  location: string;
-  author: string;
+  dateLabel: string;
+  participantCount: number;
+  peopleLabel: string;
   saveCount: number;
+  isSavedByMe: boolean;
+  savedTripId?: string | null;
+  categories: string[];
   image: string;
-  category: string;
 };
 
 export type RecommendPlanDetailDay = {
@@ -28,5 +31,7 @@ export type RecommendPlanDetail = {
   intro: string;
   budget: string;
   moveTime: string;
+  isSavedByMe: boolean;
+  savedTripId?: string | null;
   days: RecommendPlanDetailDay[];
 };

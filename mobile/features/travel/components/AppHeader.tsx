@@ -51,7 +51,7 @@ export function AppHeader({
 
 const styles = StyleSheet.create({
   root: {
-    height: 56,
+    height: 48,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
     paddingHorizontal: 16,
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   weatherText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#0F172A',
     fontWeight: '600',
   },

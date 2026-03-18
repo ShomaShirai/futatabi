@@ -263,5 +263,34 @@ ALTER TABLE trips RENAME like_count TO save_count;
 
 UPDATE alembic_version SET version_num='f8b2d4c6e1a9' WHERE alembic_version.version_num = 'f6a1c9d2b4e7';
 
+-- Running upgrade f8b2d4c6e1a9 -> a1c3d5e7f901
+
+ALTER TABLE trips ADD COLUMN source_trip_id INTEGER;
+
+ALTER TABLE trips ADD COLUMN counts_as_saved_recommendation BOOLEAN;
+
+UPDATE trips SET counts_as_saved_recommendation = FALSE WHERE counts_as_saved_recommendation IS NULL;
+
+ALTER TABLE trips ALTER COLUMN counts_as_saved_recommendation SET NOT NULL;
+
+ALTER TABLE trips ADD CONSTRAINT fk_trips_source_trip_id_trips FOREIGN KEY(source_trip_id) REFERENCES trips (id);
+
+UPDATE alembic_version SET version_num='a1c3d5e7f901' WHERE alembic_version.version_num = 'f8b2d4c6e1a9';
+
+-- Running upgrade a1c3d5e7f901 -> b2f4d6e8a102
+
+ALTER TABLE trips ADD COLUMN recommendation_categories VARCHAR(100)[];
+
+UPDATE trips
+        SET recommendation_categories =
+          CASE
+            WHEN recommendation_category IS NULL OR btrim(recommendation_category) = '' THEN ARRAY[]::varchar[]
+            ELSE regexp_split_to_array(recommendation_category, '\s*,\s*')
+          END;
+
+ALTER TABLE trips DROP COLUMN recommendation_category;
+
+UPDATE alembic_version SET version_num='b2f4d6e8a102' WHERE alembic_version.version_num = 'a1c3d5e7f901';
+
 COMMIT;
 
