@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   createButtonWrap: {
     width: 63,
     height: 63,
-    marginTop: -18,
+    marginTop: -10,
     alignItems: 'center',
     justifyContent: 'center',
   },
