@@ -310,7 +310,7 @@ export default function PlanCreateScreen() {
     } finally {
       setIsResolvingCurrentLocation(false);
     }
-  }, [resolveCurrentLocationLabel]);
+  }, [resolveCurrentLocationLabel, updateField]);
 
   const handleSubmit = async () => {
     const result = validateAndBuildCreateTripPayload(fields);
