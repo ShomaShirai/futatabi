@@ -161,11 +161,13 @@ export function useCurrentWeather({
 
     let isCancelled = false;
 
-    void fetchCurrentWeather().then((resolvedWeather) => {
-      if (!isCancelled && resolvedWeather) {
-        setWeather(resolvedWeather);
-      }
-    });
+    void fetchCurrentWeather()
+      .then((resolvedWeather) => {
+        if (!isCancelled && resolvedWeather) {
+          setWeather(resolvedWeather);
+        }
+      })
+      .catch(() => {});
 
     return () => {
       isCancelled = true;
