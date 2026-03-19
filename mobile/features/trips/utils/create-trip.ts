@@ -23,6 +23,7 @@ export type CreateTripValidationResult =
   };
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const FALLBACK_ATMOSPHERE: TripAtmosphere = 'のんびり';
 
 export function validateAndBuildCreateTripPayload(
   values: CreateTripFormValues
@@ -101,6 +102,10 @@ export function validateAndBuildCreateTripPayload(
   }
   const budget = parsedBudgetPerPerson * participantCount;
 
+  const safeAtmosphere: TripAtmosphere = atmosphere
+    ? (atmosphere as TripAtmosphere)
+    : FALLBACK_ATMOSPHERE;
+
   return {
     ok: true,
     payload: {
@@ -112,7 +117,7 @@ export function validateAndBuildCreateTripPayload(
       recommendation_categories: recommendationCategories,
       status: 'planned',
       preference: {
-        atmosphere: atmosphere as TripAtmosphere,
+        atmosphere: safeAtmosphere,
         budget,
         transport_type: 'train,bus',
       },
