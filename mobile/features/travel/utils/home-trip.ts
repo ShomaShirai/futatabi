@@ -179,7 +179,10 @@ function buildHomeDayGroups(aggregate: TripDetailAggregateResponse): HomeDayGrou
 
   return Array.from(groups.values())
     .sort(compareHomeDayGroups)
-    .map((group) => ({ ...group }));
+    .map((group) => ({
+      ...group,
+      items: group.items.slice().sort((a, b) => (a.start_time ?? '').localeCompare(b.start_time ?? '')),
+    }));
 }
 
 function getDateDistance(dateValue: string | null | undefined, now: number) {
