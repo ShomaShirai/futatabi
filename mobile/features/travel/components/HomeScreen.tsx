@@ -33,6 +33,11 @@ function TimelineItemBlock({
           ? 'directions-bus'
           : 'train'
       : 'place';
+  const iconColor = item.itemType === 'transport'
+    ? isUpcoming
+      ? '#0369A1'
+      : '#EA580C'
+    : '#0284C7';
 
   return (
     <View style={[styles.timelineBlock, isUpcoming ? styles.timelineBlockUpcoming : null]}>
@@ -73,12 +78,13 @@ function TimelineItemBlock({
               style={[
                 styles.timelineIconWrap,
                 item.itemType === 'transport' ? styles.timelineIconWrapTransport : null,
+                isUpcoming && item.itemType === 'transport' ? styles.timelineIconWrapTransportUpcoming : null,
               ]}
             >
               <MaterialIcons
                 name={iconName}
                 size={16}
-                color={item.itemType === 'transport' ? '#EA580C' : '#0284C7'}
+                color={iconColor}
               />
             </View>
             <Text style={travelStyles.timelineText}>{item.title}</Text>
@@ -359,9 +365,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   timelineBlockUpcoming: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F0F9FF',
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: '#BAE6FD',
   },
   timelineBlockHeader: {
     flexDirection: 'row',
@@ -376,8 +382,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   timelineStateBadgeNext: {
-    backgroundColor: '#EA580C',
-    borderColor: '#EA580C',
+    backgroundColor: '#0284C7',
+    borderColor: '#0284C7',
   },
   timelineStateBadgeFinished: {
     backgroundColor: '#F1F5F9',
@@ -412,6 +418,9 @@ const styles = StyleSheet.create({
   timelineIconWrapTransport: {
     backgroundColor: '#FFEDD5',
   },
+  timelineIconWrapTransportUpcoming: {
+    backgroundColor: '#E0F2FE',
+  },
   timelineMemo: {
     lineHeight: 20,
   },
@@ -422,22 +431,22 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: '#BAE6FD',
   },
   timelineMetaChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9A3412',
+    color: '#075985',
   },
   timelineHelperText: {
     lineHeight: 20,
   },
   timelineSectionTitleUpcoming: {
-    color: '#EA580C',
+    color: '#0369A1',
     fontWeight: '700',
   },
   nextTimelineTime: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#0EA5E9',
   },
   finishedTimelineTime: {
     backgroundColor: '#94A3B8',

@@ -75,9 +75,6 @@ function transportModeLabel(mode?: string | null) {
 function buildTransportMetaLabel(item: TripDetailItineraryItemResponse) {
   const parts: string[] = [];
 
-  if (item.notes) {
-    parts.push(item.notes);
-  }
   if (typeof item.travel_minutes === 'number') {
     parts.push(`${item.travel_minutes}分`);
   }
@@ -89,7 +86,11 @@ function buildTransportMetaLabel(item: TripDetailItineraryItemResponse) {
     );
   }
 
-  return parts.join(' / ') || null;
+  if (parts.length) {
+    return parts.join(' / ');
+  }
+
+  return item.notes || null;
 }
 
 function toTimelineTitle(item: TripDetailItineraryItemResponse) {
