@@ -1,4 +1,4 @@
-import { groupItineraryByDay, toTimeLabel } from '@/features/plan-detail/utils/plan-detail';
+import { toTimeLabel } from '@/features/plan-detail/utils/plan-detail';
 import { type TripDetailAggregateResponse, type TripDetailItineraryItemResponse } from '@/features/trips/types/trip-detail';
 import { type TripResponse } from '@/features/trips/types/trip-edit';
 
@@ -11,9 +11,20 @@ export type HomeTimelineItem = {
 
 export type HomeOngoingTripView = {
   dayLabel: string | null;
-  currentItem: HomeTimelineItem | null;
-  nextItem: HomeTimelineItem | null;
+  sectionTitle: '現在の行程' | '次の予定' | '本日の行程';
+  primaryLabel: '現在' | '次' | '終了';
+  primaryItem: HomeTimelineItem | null;
+  secondaryLabel: '次' | null;
+  secondaryItem: HomeTimelineItem | null;
+  helperText: string | null;
   hasTimeline: boolean;
+};
+
+type HomeDayGroup = {
+  tripDayId: number;
+  dayNumber?: number;
+  date?: string | null;
+  items: TripDetailItineraryItemResponse[];
 };
 
 function parseTimestamp(value?: string | null): number | null {
@@ -81,16 +92,166 @@ function toHomeTimelineItem(item?: TripDetailItineraryItemResponse | null): Home
   };
 }
 
-function resolveTimelineItems(items: TripDetailItineraryItemResponse[]): Pick<HomeOngoingTripView, 'currentItem' | 'nextItem' | 'hasTimeline'> {
+function compareNullableNumberAsc(a: number | null, b: number | null) {
+  if (a === b) {
+    return 0;
+  }
+  if (a === null) {
+    return 1;
+  }
+  if (b === null) {
+    return -1;
+  }
+  return a - b;
+}
+
+function compareItineraryItems(a: TripDetailItineraryItemResponse, b: TripDetailItineraryItemResponse) {
+  const startComparison = compareNullableNumberAsc(parseTimestamp(a.start_time), parseTimestamp(b.start_time));
+  if (startComparison !== 0) {
+    return startComparison;
+  }
+
+  const endComparison = compareNullableNumberAsc(parseTimestamp(a.end_time), parseTimestamp(b.end_time));
+  if (endComparison !== 0) {
+    return endComparison;
+  }
+
+  return a.id - b.id;
+}
+
+function compareHomeDayGroups(a: HomeDayGroup, b: HomeDayGroup) {
+  const dayNumberComparison = compareNullableNumberAsc(a.dayNumber ?? null, b.dayNumber ?? null);
+  if (dayNumberComparison !== 0) {
+    return dayNumberComparison;
+  }
+
+  const dateComparison = (normalizeDate(a.date) ?? '').localeCompare(normalizeDate(b.date) ?? '');
+  if (dateComparison !== 0) {
+    return dateComparison;
+  }
+
+  return a.tripDayId - b.tripDayId;
+}
+
+function buildHomeDayGroups(aggregate: TripDetailAggregateResponse): HomeDayGroup[] {
+  const groups = new Map<number, HomeDayGroup>();
+
+  for (const day of aggregate.days) {
+    groups.set(day.id, {
+      tripDayId: day.id,
+      dayNumber: day.day_number,
+      date: day.date,
+      items: [],
+    });
+  }
+
+  for (const item of aggregate.itinerary_items) {
+    const existing = groups.get(item.trip_day_id);
+    if (existing) {
+      existing.items.push(item);
+      continue;
+    }
+
+    groups.set(item.trip_day_id, {
+      tripDayId: item.trip_day_id,
+      items: [item],
+    });
+  }
+
+  return Array.from(groups.values())
+    .sort(compareHomeDayGroups)
+    .map((group) => ({
+      ...group,
+      items: [...group.items].sort(compareItineraryItems),
+    }));
+}
+
+function getDateDistance(dateValue: string | null | undefined, now: number) {
+  const normalized = normalizeDate(dateValue);
+  if (!normalized) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const distance = new Date(`${normalized}T00:00:00`).getTime();
+  return Number.isNaN(distance) ? Number.POSITIVE_INFINITY : Math.abs(distance - now);
+}
+
+function getItemDistance(item: TripDetailItineraryItemResponse, now: number) {
+  const start = parseTimestamp(item.start_time);
+  const end = parseTimestamp(item.end_time);
+
+  if (start !== null && end !== null && start <= now && now < end) {
+    return 0;
+  }
+
+  const candidates = [start, end].filter((value): value is number => value !== null);
+  if (!candidates.length) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.min(...candidates.map((value) => Math.abs(value - now)));
+}
+
+function selectActiveGroup(groups: HomeDayGroup[], nowDate = new Date()) {
+  const todayKey = toLocalDateKey(nowDate);
+  const todayGroup = groups.find((group) => normalizeDate(group.date) === todayKey);
+
+  if (todayGroup) {
+    return todayGroup;
+  }
+
+  const now = nowDate.getTime();
+
+  return (
+    [...groups].sort((a, b) => {
+      const aDistance = Math.min(
+        getDateDistance(a.date, now),
+        ...a.items.map((item) => getItemDistance(item, now))
+      );
+      const bDistance = Math.min(
+        getDateDistance(b.date, now),
+        ...b.items.map((item) => getItemDistance(item, now))
+      );
+
+      if (aDistance !== bDistance) {
+        return aDistance - bDistance;
+      }
+
+      return compareHomeDayGroups(a, b);
+    })[0] ?? null
+  );
+}
+
+function resolveTimelineItems(
+  items: TripDetailItineraryItemResponse[]
+): Omit<HomeOngoingTripView, 'dayLabel'> {
   if (!items.length) {
     return {
-      currentItem: null,
-      nextItem: null,
+      sectionTitle: '本日の行程',
+      primaryLabel: '次',
+      primaryItem: null,
+      secondaryLabel: null,
+      secondaryItem: null,
+      helperText: null,
       hasTimeline: false,
     };
   }
 
   const now = Date.now();
+  const hasTimedItems = items.some((item) => parseTimestamp(item.start_time) !== null || parseTimestamp(item.end_time) !== null);
+
+  if (!hasTimedItems) {
+    return {
+      sectionTitle: '本日の行程',
+      primaryLabel: '次',
+      primaryItem: toHomeTimelineItem(items[0]),
+      secondaryLabel: items[1] ? '次' : null,
+      secondaryItem: toHomeTimelineItem(items[1]),
+      helperText: null,
+      hasTimeline: true,
+    };
+  }
+
   const currentIndex = items.findIndex((item) => {
     const start = parseTimestamp(item.start_time);
     const end = parseTimestamp(item.end_time);
@@ -104,15 +265,40 @@ function resolveTimelineItems(items: TripDetailItineraryItemResponse[]): Pick<Ho
 
   if (currentIndex >= 0) {
     return {
-      currentItem: toHomeTimelineItem(items[currentIndex]),
-      nextItem: toHomeTimelineItem(items[currentIndex + 1]),
+      sectionTitle: '現在の行程',
+      primaryLabel: '現在',
+      primaryItem: toHomeTimelineItem(items[currentIndex]),
+      secondaryLabel: items[currentIndex + 1] ? '次' : null,
+      secondaryItem: toHomeTimelineItem(items[currentIndex + 1]),
+      helperText: null,
+      hasTimeline: true,
+    };
+  }
+
+  const futureIndex = items.findIndex((item) => {
+    const start = parseTimestamp(item.start_time);
+    return start !== null && now < start;
+  });
+
+  if (futureIndex >= 0) {
+    return {
+      sectionTitle: '次の予定',
+      primaryLabel: '次',
+      primaryItem: toHomeTimelineItem(items[futureIndex]),
+      secondaryLabel: items[futureIndex + 1] ? '次' : null,
+      secondaryItem: toHomeTimelineItem(items[futureIndex + 1]),
+      helperText: null,
       hasTimeline: true,
     };
   }
 
   return {
-    currentItem: toHomeTimelineItem(items[0]),
-    nextItem: toHomeTimelineItem(items[1]),
+    sectionTitle: '本日の行程',
+    primaryLabel: '終了',
+    primaryItem: toHomeTimelineItem(items[items.length - 1]),
+    secondaryLabel: null,
+    secondaryItem: null,
+    helperText: '本日の行程は終了しました。',
     hasTimeline: true,
   };
 }
@@ -127,15 +313,18 @@ export function selectFeaturedOngoingTrip(trips: TripResponse[]): TripResponse |
 }
 
 export function buildHomeOngoingTripView(aggregate: TripDetailAggregateResponse): HomeOngoingTripView {
-  const groups = groupItineraryByDay(aggregate);
-  const todayKey = toLocalDateKey();
-  const activeGroup = groups.find((group) => normalizeDate(group.date) === todayKey) ?? groups[0] ?? null;
+  const groups = buildHomeDayGroups(aggregate);
+  const activeGroup = selectActiveGroup(groups);
 
   if (!activeGroup) {
     return {
       dayLabel: null,
-      currentItem: null,
-      nextItem: null,
+      sectionTitle: '本日の行程',
+      primaryLabel: '次',
+      primaryItem: null,
+      secondaryLabel: null,
+      secondaryItem: null,
+      helperText: null,
       hasTimeline: false,
     };
   }

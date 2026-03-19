@@ -9,13 +9,61 @@ import { formatTripStatusLabel } from '@/features/trips/utils/trip-list';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { PhotoCard } from '@/features/travel/components/PhotoCard';
 import { travelStyles } from '@/features/travel/styles';
-import { buildHomeOngoingTripView, selectFeaturedOngoingTrip } from '@/features/travel/utils/home-trip';
+import { buildHomeOngoingTripView, selectFeaturedOngoingTrip, type HomeTimelineItem } from '@/features/travel/utils/home-trip';
 import { getTripDetail } from '@/features/trips/api/get-trip-detail';
 import { getTrips } from '@/features/trips/api/get-trips';
 import { type TripDetailAggregateResponse } from '@/features/trips/types/trip-detail';
 import { type TripResponse } from '@/features/trips/types/trip-edit';
 
 type DetailState = 'idle' | 'ready' | 'empty' | 'unavailable';
+
+function TimelineItemBlock({
+  label,
+  item,
+}: {
+  label: '現在' | '次' | '終了';
+  item: HomeTimelineItem;
+}) {
+  return (
+    <View style={styles.timelineBlock}>
+      <View style={styles.timelineBlockHeader}>
+        <View
+          style={[
+            styles.timelineStateBadge,
+            label === '次' ? styles.timelineStateBadgeNext : null,
+            label === '終了' ? styles.timelineStateBadgeFinished : null,
+          ]}
+        >
+          <Text
+            style={[
+              styles.timelineStateBadgeText,
+              label === '終了' ? styles.timelineStateBadgeTextFinished : null,
+            ]}
+          >
+            {label}
+          </Text>
+        </View>
+      </View>
+
+      <View style={travelStyles.timelineRow}>
+        <Text
+          style={[
+            travelStyles.timelineTime,
+            label === '次' ? styles.nextTimelineTime : null,
+            label === '終了' ? styles.finishedTimelineTime : null,
+          ]}
+        >
+          {item.time}
+        </Text>
+
+        <View style={travelStyles.timelineTextBlock}>
+          <Text style={travelStyles.timelineText}>{item.place}</Text>
+          <Text style={[travelStyles.subheading, styles.timelineMemo]}>{item.memo}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 function OngoingTripSection({
   trip,
@@ -56,32 +104,22 @@ function OngoingTripSection({
 
       <View style={travelStyles.timelineCard}>
         <Text style={travelStyles.subheading}>
-          {timelineView?.dayLabel ? `現在の行程 (${timelineView.dayLabel})` : '現在の行程'}
+          {timelineView?.dayLabel ? `${timelineView.sectionTitle} (${timelineView.dayLabel})` : timelineView?.sectionTitle ?? '本日の行程'}
         </Text>
 
-        {detailState === 'ready' && timelineView?.hasTimeline && timelineView.currentItem ? (
+        {detailState === 'ready' && timelineView?.hasTimeline && timelineView.primaryItem ? (
           <>
-            <View style={travelStyles.timelineRow}>
-              <Text style={travelStyles.timelineTime}>{timelineView.currentItem.time}</Text>
-              <Text style={travelStyles.timelineText}>{timelineView.currentItem.place}</Text>
-            </View>
-            <Text style={travelStyles.subheading}>{timelineView.currentItem.memo}</Text>
+            <TimelineItemBlock label={timelineView.primaryLabel} item={timelineView.primaryItem} />
 
-            {timelineView.nextItem ? (
+            {timelineView.secondaryItem || timelineView.helperText ? <View style={travelStyles.divider} /> : null}
+
+            {timelineView.secondaryItem ? (
               <>
-                <View style={travelStyles.divider} />
-                <View style={travelStyles.timelineRow}>
-                  <Text style={[travelStyles.timelineTime, styles.nextTimelineTime]}>{timelineView.nextItem.time}</Text>
-                  <Text style={travelStyles.timelineText}>{timelineView.nextItem.place}</Text>
-                </View>
-                <Text style={travelStyles.subheading}>{timelineView.nextItem.memo}</Text>
+                <TimelineItemBlock label={timelineView.secondaryLabel ?? '次'} item={timelineView.secondaryItem} />
               </>
-            ) : (
-              <>
-                <View style={travelStyles.divider} />
-                <Text style={travelStyles.subheading}>次の予定はまだありません。</Text>
-              </>
-            )}
+            ) : null}
+
+            {timelineView.helperText ? <Text style={[travelStyles.subheading, styles.timelineHelperText]}>{timelineView.helperText}</Text> : null}
           </>
         ) : detailState === 'ready' ? (
           <Text style={travelStyles.subheading}>この日の行程はまだありません。</Text>
@@ -232,12 +270,15 @@ const styles = StyleSheet.create({
   },
   summaryTextBlock: {
     flex: 1,
+    minWidth: 0,
     gap: 4,
   },
   summaryTitle: {
     fontSize: 18,
+    lineHeight: 24,
     fontWeight: '700',
     color: '#0F172A',
+    flexShrink: 1,
   },
   summaryMeta: {
     fontSize: 13,
@@ -250,6 +291,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECFDF5',
     borderWidth: 1,
     borderColor: '#A7F3D0',
+    flexShrink: 0,
+    alignSelf: 'flex-start',
   },
   statusBadgeText: {
     fontSize: 12,
@@ -272,7 +315,47 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#EC5B13',
   },
+  timelineBlock: {
+    gap: 8,
+  },
+  timelineBlockHeader: {
+    flexDirection: 'row',
+  },
+  timelineStateBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#DBEAFE',
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    alignSelf: 'flex-start',
+  },
+  timelineStateBadgeNext: {
+    backgroundColor: '#FFEDD5',
+    borderColor: '#FDBA74',
+  },
+  timelineStateBadgeFinished: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+  },
+  timelineStateBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  timelineStateBadgeTextFinished: {
+    color: '#475569',
+  },
+  timelineMemo: {
+    lineHeight: 20,
+  },
+  timelineHelperText: {
+    lineHeight: 20,
+  },
   nextTimelineTime: {
     backgroundColor: '#F97316',
+  },
+  finishedTimelineTime: {
+    backgroundColor: '#94A3B8',
   },
 });
