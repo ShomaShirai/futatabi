@@ -24,13 +24,14 @@ import { type TripResponse } from '@/features/trips/types/trip-edit';
 import { type TripListItemViewModel, type TripSortOrder } from '@/features/trips/types/trip-list';
 import { filterTripListItems, toTripListItemViewModel } from '@/features/trips/utils/trip-list';
 
-type PickerType = 'people' | 'start' | 'end' | null;
+type PickerType = 'category' | 'people' | 'start' | 'end' | null;
 
 const PLAN_IMAGE_URL =
   'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1200&q=80';
 const WHEEL_ITEM_HEIGHT = 44;
 const WHEEL_VISIBLE_ROWS = 5;
 const PEOPLE_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
+const CATEGORY_OPTIONS = ['カフェ', '夜景', 'グルメ', '温泉'] as const;
 
 function parseDateInput(value: string) {
   if (!value) return null;
@@ -110,6 +111,7 @@ export default function PlansListScreen() {
   const [plans, setPlans] = useState<TripResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [keyword, setKeyword] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [peopleFilter, setPeopleFilter] = useState<number | null>(null);
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
@@ -142,12 +144,13 @@ export default function PlansListScreen() {
     () =>
       filterTripListItems(planItems, {
         keyword,
+        categories: categoryFilter,
         startDate: startDateFilter,
         endDate: endDateFilter,
         sortOrder,
         participantCount: peopleFilter,
       }),
-    [endDateFilter, keyword, peopleFilter, planItems, sortOrder, startDateFilter]
+    [categoryFilter, endDateFilter, keyword, peopleFilter, planItems, sortOrder, startDateFilter]
   );
 
   const openPeoplePicker = useCallback(() => {
@@ -194,9 +197,18 @@ export default function PlansListScreen() {
     setActivePicker(null);
   }, []);
 
+  const toggleCategoryFilter = useCallback((category: string) => {
+    setCategoryFilter((current) =>
+      current.includes(category) ? current.filter((item) => item !== category) : [...current, category]
+    );
+  }, []);
+
   const resetPicker = useCallback(() => {
     if (activePicker === 'people') {
       setPeopleFilter(null);
+    }
+    if (activePicker === 'category') {
+      setCategoryFilter([]);
     }
     if (activePicker === 'start') {
       setStartDateFilter('');
@@ -216,6 +228,7 @@ export default function PlansListScreen() {
   }, [activePicker, draftPeople]);
 
   const sortLabel = sortOrder === 'newest' ? '新しい順' : '古い順';
+  const categoryLabel = categoryFilter.length ? `カテゴリ(${categoryFilter.length})` : 'カテゴリ';
   const peopleLabel = peopleFilter ? `${peopleFilter}名` : '人数';
   const startLabel = startDateFilter || '開始日';
   const endLabel = endDateFilter || '終了日';
@@ -243,6 +256,15 @@ export default function PlansListScreen() {
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
+            <Pressable
+              style={[styles.filterChip, categoryFilter.length > 0 && styles.filterChipActive]}
+              onPress={() => setActivePicker('category')}
+            >
+              <Text style={[styles.filterChipText, categoryFilter.length > 0 && styles.filterChipTextActive]}>
+                {categoryLabel}
+              </Text>
+              <MaterialIcons name="expand-more" size={18} color={categoryFilter.length > 0 ? '#EC5B13' : '#64748B'} />
+            </Pressable>
             <Pressable style={[styles.filterChip, !!peopleFilter && styles.filterChipActive]} onPress={openPeoplePicker}>
               <Text style={[styles.filterChipText, !!peopleFilter && styles.filterChipTextActive]}>{peopleLabel}</Text>
               <MaterialIcons name="expand-more" size={18} color={peopleFilter ? '#EC5B13' : '#64748B'} />
@@ -334,7 +356,34 @@ export default function PlansListScreen() {
       <Modal visible={activePicker !== null} transparent animationType="slide" onRequestClose={closePicker}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
-            {activePicker === 'people' ? (
+            {activePicker === 'category' ? (
+              <>
+                <View style={styles.modalTopSection}>
+                  <Text style={styles.modalTitle}>カテゴリを選択</Text>
+                  <Pressable style={styles.modalCloseButton} onPress={closePicker}>
+                    <MaterialIcons name="close" size={22} color="#64748B" />
+                  </Pressable>
+                </View>
+                <View style={styles.categoryPickerSection}>
+                  <View style={styles.categoryPickerList}>
+                    {CATEGORY_OPTIONS.map((category) => {
+                      const active = categoryFilter.includes(category);
+                      return (
+                        <Pressable
+                          key={category}
+                          style={[styles.categoryPickerChip, active && styles.categoryPickerChipActive]}
+                          onPress={() => toggleCategoryFilter(category)}
+                        >
+                          <Text style={[styles.categoryPickerChipText, active && styles.categoryPickerChipTextActive]}>
+                            {category}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              </>
+            ) : activePicker === 'people' ? (
               <>
                 <View style={styles.modalTopSection}>
                   <Text style={styles.modalTitle}>人数を選択</Text>
@@ -679,6 +728,41 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingVertical: 8,
+  },
+  categoryPickerSection: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  categoryPickerList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'center',
+  },
+  categoryPickerChip: {
+    minWidth: 112,
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryPickerChipActive: {
+    borderColor: '#F7B28B',
+    backgroundColor: '#FFF1E8',
+  },
+  categoryPickerChipText: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: '#0F172A',
+  },
+  categoryPickerChipTextActive: {
+    color: '#EC5B13',
   },
   wheelWrap: {
     width: '100%',
