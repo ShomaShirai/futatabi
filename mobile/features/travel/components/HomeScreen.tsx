@@ -21,22 +21,33 @@ function TimelineItemBlock({
   label,
   item,
 }: {
-  label: '現在' | '次' | '終了';
+  label: '現在' | 'まもなく' | 'このあと' | '終了';
   item: HomeTimelineItem;
 }) {
+  const isUpcoming = label === 'まもなく' || label === 'このあと';
+  const iconName =
+    item.itemType === 'transport'
+      ? item.transportMode === 'WALK'
+        ? 'directions-walk'
+        : item.transportMode === 'BUS'
+          ? 'directions-bus'
+          : 'train'
+      : 'place';
+
   return (
-    <View style={styles.timelineBlock}>
+    <View style={[styles.timelineBlock, isUpcoming ? styles.timelineBlockUpcoming : null]}>
       <View style={styles.timelineBlockHeader}>
         <View
           style={[
             styles.timelineStateBadge,
-            label === '次' ? styles.timelineStateBadgeNext : null,
+            isUpcoming ? styles.timelineStateBadgeNext : null,
             label === '終了' ? styles.timelineStateBadgeFinished : null,
           ]}
         >
           <Text
             style={[
               styles.timelineStateBadgeText,
+              isUpcoming ? styles.timelineStateBadgeTextUpcoming : null,
               label === '終了' ? styles.timelineStateBadgeTextFinished : null,
             ]}
           >
@@ -49,7 +60,7 @@ function TimelineItemBlock({
         <Text
           style={[
             travelStyles.timelineTime,
-            label === '次' ? styles.nextTimelineTime : null,
+            isUpcoming ? styles.nextTimelineTime : null,
             label === '終了' ? styles.finishedTimelineTime : null,
           ]}
         >
@@ -57,8 +68,29 @@ function TimelineItemBlock({
         </Text>
 
         <View style={travelStyles.timelineTextBlock}>
-          <Text style={travelStyles.timelineText}>{item.place}</Text>
-          <Text style={[travelStyles.subheading, styles.timelineMemo]}>{item.memo}</Text>
+          <View style={styles.timelineTitleRow}>
+            <View
+              style={[
+                styles.timelineIconWrap,
+                item.itemType === 'transport' ? styles.timelineIconWrapTransport : null,
+              ]}
+            >
+              <MaterialIcons
+                name={iconName}
+                size={16}
+                color={item.itemType === 'transport' ? '#EA580C' : '#0284C7'}
+              />
+            </View>
+            <Text style={travelStyles.timelineText}>{item.title}</Text>
+          </View>
+
+          <Text style={[travelStyles.subheading, styles.timelineMemo]}>{item.detail}</Text>
+
+          {item.metaLabel ? (
+            <View style={styles.timelineMetaChip}>
+              <Text style={styles.timelineMetaChipText}>{item.metaLabel}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </View>
@@ -103,7 +135,12 @@ function OngoingTripSection({
       </View>
 
       <View style={travelStyles.timelineCard}>
-        <Text style={travelStyles.subheading}>
+        <Text
+          style={[
+            travelStyles.subheading,
+            timelineView?.sectionTitle === '次の予定' ? styles.timelineSectionTitleUpcoming : null,
+          ]}
+        >
           {timelineView?.dayLabel ? `${timelineView.sectionTitle} (${timelineView.dayLabel})` : timelineView?.sectionTitle ?? '本日の行程'}
         </Text>
 
@@ -115,7 +152,7 @@ function OngoingTripSection({
 
             {timelineView.secondaryItem ? (
               <>
-                <TimelineItemBlock label={timelineView.secondaryLabel ?? '次'} item={timelineView.secondaryItem} />
+                <TimelineItemBlock label={timelineView.secondaryLabel ?? 'このあと'} item={timelineView.secondaryItem} />
               </>
             ) : null}
 
@@ -317,6 +354,14 @@ const styles = StyleSheet.create({
   },
   timelineBlock: {
     gap: 8,
+    borderRadius: 14,
+    padding: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  timelineBlockUpcoming: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
   },
   timelineBlockHeader: {
     flexDirection: 'row',
@@ -331,8 +376,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   timelineStateBadgeNext: {
-    backgroundColor: '#FFEDD5',
-    borderColor: '#FDBA74',
+    backgroundColor: '#EA580C',
+    borderColor: '#EA580C',
   },
   timelineStateBadgeFinished: {
     backgroundColor: '#F1F5F9',
@@ -343,14 +388,53 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1D4ED8',
   },
+  timelineStateBadgeTextUpcoming: {
+    color: '#FFFFFF',
+  },
   timelineStateBadgeTextFinished: {
     color: '#475569',
+  },
+  timelineTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  timelineIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E0F2FE',
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  timelineIconWrapTransport: {
+    backgroundColor: '#FFEDD5',
   },
   timelineMemo: {
     lineHeight: 20,
   },
+  timelineMetaChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  timelineMetaChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9A3412',
+  },
   timelineHelperText: {
     lineHeight: 20,
+  },
+  timelineSectionTitleUpcoming: {
+    color: '#EA580C',
+    fontWeight: '700',
   },
   nextTimelineTime: {
     backgroundColor: '#F97316',

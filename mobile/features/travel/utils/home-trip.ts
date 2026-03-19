@@ -5,16 +5,19 @@ import { type TripResponse } from '@/features/trips/types/trip-edit';
 export type HomeTimelineItem = {
   id: number;
   time: string;
-  place: string;
-  memo: string;
+  title: string;
+  detail: string;
+  metaLabel?: string | null;
+  itemType: 'place' | 'transport';
+  transportMode?: string | null;
 };
 
 export type HomeOngoingTripView = {
   dayLabel: string | null;
   sectionTitle: '現在の行程' | '次の予定' | '本日の行程';
-  primaryLabel: '現在' | '次' | '終了';
+  primaryLabel: '現在' | 'まもなく' | '終了';
   primaryItem: HomeTimelineItem | null;
-  secondaryLabel: '次' | null;
+  secondaryLabel: 'このあと' | null;
   secondaryItem: HomeTimelineItem | null;
   helperText: string | null;
   hasTimeline: boolean;
@@ -63,20 +66,46 @@ function compareUpdatedAtDesc(a: TripResponse, b: TripResponse) {
   return b.id - a.id;
 }
 
-function toTimelineMemo(item: TripDetailItineraryItemResponse) {
+function transportModeLabel(mode?: string | null) {
+  if (mode === 'WALK') return '徒歩で移動';
+  if (mode === 'BUS') return 'バスで移動';
+  return '電車で移動';
+}
+
+function buildTransportMetaLabel(item: TripDetailItineraryItemResponse) {
+  const parts: string[] = [];
+
+  if (item.notes) {
+    parts.push(item.notes);
+  }
+  if (typeof item.travel_minutes === 'number') {
+    parts.push(`${item.travel_minutes}分`);
+  }
+  if (typeof item.distance_meters === 'number') {
+    parts.push(
+      item.distance_meters >= 1000
+        ? `${(item.distance_meters / 1000).toFixed(1)}km`
+        : `${item.distance_meters}m`
+    );
+  }
+
+  return parts.join(' / ') || null;
+}
+
+function toTimelineTitle(item: TripDetailItineraryItemResponse) {
+  if (item.item_type === 'transport') {
+    return item.name || transportModeLabel(item.transport_mode);
+  }
+
+  return item.name;
+}
+
+function toTimelineDetail(item: TripDetailItineraryItemResponse) {
   if (item.item_type === 'transport' && item.from_name && item.to_name) {
     return `${item.from_name} → ${item.to_name}`;
   }
 
   return item.notes || item.category || '詳細メモは未設定です。';
-}
-
-function toTimelinePlace(item: TripDetailItineraryItemResponse) {
-  if (item.item_type === 'transport' && item.from_name && item.to_name) {
-    return `${item.from_name} → ${item.to_name}`;
-  }
-
-  return item.name;
 }
 
 function toHomeTimelineItem(item?: TripDetailItineraryItemResponse | null): HomeTimelineItem | null {
@@ -87,8 +116,11 @@ function toHomeTimelineItem(item?: TripDetailItineraryItemResponse | null): Home
   return {
     id: item.id,
     time: toTimeLabel(item.start_time),
-    place: toTimelinePlace(item),
-    memo: toTimelineMemo(item),
+    title: toTimelineTitle(item),
+    detail: toTimelineDetail(item),
+    metaLabel: item.item_type === 'transport' ? buildTransportMetaLabel(item) : null,
+    itemType: item.item_type === 'transport' ? 'transport' : 'place',
+    transportMode: item.transport_mode,
   };
 }
 
@@ -103,20 +135,6 @@ function compareNullableNumberAsc(a: number | null, b: number | null) {
     return -1;
   }
   return a - b;
-}
-
-function compareItineraryItems(a: TripDetailItineraryItemResponse, b: TripDetailItineraryItemResponse) {
-  const startComparison = compareNullableNumberAsc(parseTimestamp(a.start_time), parseTimestamp(b.start_time));
-  if (startComparison !== 0) {
-    return startComparison;
-  }
-
-  const endComparison = compareNullableNumberAsc(parseTimestamp(a.end_time), parseTimestamp(b.end_time));
-  if (endComparison !== 0) {
-    return endComparison;
-  }
-
-  return a.id - b.id;
 }
 
 function compareHomeDayGroups(a: HomeDayGroup, b: HomeDayGroup) {
@@ -160,10 +178,7 @@ function buildHomeDayGroups(aggregate: TripDetailAggregateResponse): HomeDayGrou
 
   return Array.from(groups.values())
     .sort(compareHomeDayGroups)
-    .map((group) => ({
-      ...group,
-      items: [...group.items].sort(compareItineraryItems),
-    }));
+    .map((group) => ({ ...group }));
 }
 
 function getDateDistance(dateValue: string | null | undefined, now: number) {
@@ -228,7 +243,7 @@ function resolveTimelineItems(
   if (!items.length) {
     return {
       sectionTitle: '本日の行程',
-      primaryLabel: '次',
+      primaryLabel: 'まもなく',
       primaryItem: null,
       secondaryLabel: null,
       secondaryItem: null,
@@ -238,20 +253,6 @@ function resolveTimelineItems(
   }
 
   const now = Date.now();
-  const hasTimedItems = items.some((item) => parseTimestamp(item.start_time) !== null || parseTimestamp(item.end_time) !== null);
-
-  if (!hasTimedItems) {
-    return {
-      sectionTitle: '本日の行程',
-      primaryLabel: '次',
-      primaryItem: toHomeTimelineItem(items[0]),
-      secondaryLabel: items[1] ? '次' : null,
-      secondaryItem: toHomeTimelineItem(items[1]),
-      helperText: null,
-      hasTimeline: true,
-    };
-  }
-
   const currentIndex = items.findIndex((item) => {
     const start = parseTimestamp(item.start_time);
     const end = parseTimestamp(item.end_time);
@@ -268,25 +269,36 @@ function resolveTimelineItems(
       sectionTitle: '現在の行程',
       primaryLabel: '現在',
       primaryItem: toHomeTimelineItem(items[currentIndex]),
-      secondaryLabel: items[currentIndex + 1] ? '次' : null,
+      secondaryLabel: items[currentIndex + 1] ? 'このあと' : null,
       secondaryItem: toHomeTimelineItem(items[currentIndex + 1]),
       helperText: null,
       hasTimeline: true,
     };
   }
 
-  const futureIndex = items.findIndex((item) => {
-    const start = parseTimestamp(item.start_time);
-    return start !== null && now < start;
-  });
+  let nextIndex = 0;
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const start = parseTimestamp(items[index].start_time);
+    const end = parseTimestamp(items[index].end_time);
 
-  if (futureIndex >= 0) {
+    if (end !== null && end <= now) {
+      nextIndex = index + 1;
+      break;
+    }
+
+    if (end === null && start !== null && start <= now) {
+      nextIndex = index + 1;
+      break;
+    }
+  }
+
+  if (nextIndex < items.length) {
     return {
       sectionTitle: '次の予定',
-      primaryLabel: '次',
-      primaryItem: toHomeTimelineItem(items[futureIndex]),
-      secondaryLabel: items[futureIndex + 1] ? '次' : null,
-      secondaryItem: toHomeTimelineItem(items[futureIndex + 1]),
+      primaryLabel: 'まもなく',
+      primaryItem: toHomeTimelineItem(items[nextIndex]),
+      secondaryLabel: items[nextIndex + 1] ? 'このあと' : null,
+      secondaryItem: toHomeTimelineItem(items[nextIndex + 1]),
       helperText: null,
       hasTimeline: true,
     };
@@ -320,7 +332,7 @@ export function buildHomeOngoingTripView(aggregate: TripDetailAggregateResponse)
     return {
       dayLabel: null,
       sectionTitle: '本日の行程',
-      primaryLabel: '次',
+      primaryLabel: 'まもなく',
       primaryItem: null,
       secondaryLabel: null,
       secondaryItem: null,
