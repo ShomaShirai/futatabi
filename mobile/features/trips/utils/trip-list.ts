@@ -10,8 +10,20 @@ export function parseTripDateValue(value: string): number | null {
   const match = normalized.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
   if (!match) return null;
   const [, year, month, day] = match;
-  const parsed = new Date(Number(year), Number(month) - 1, Number(day)).getTime();
-  return Number.isNaN(parsed) ? null : parsed;
+  const yearNum = Number(year);
+  const monthNum = Number(month);
+  const dayNum = Number(day);
+  const date = new Date(yearNum, monthNum - 1, dayNum);
+  const time = date.getTime();
+  if (
+    Number.isNaN(time) ||
+    date.getFullYear() !== yearNum ||
+    date.getMonth() + 1 !== monthNum ||
+    date.getDate() !== dayNum
+  ) {
+    return null;
+  }
+  return time;
 }
 
 export function formatTripStatusLabel(status: string) {
