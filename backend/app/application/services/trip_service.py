@@ -34,6 +34,8 @@ class TripService:
     """Trip application service."""
 
     ALLOWED_RECOMMENDATION_CATEGORIES = {"カフェ", "夜景", "グルメ", "温泉"}
+    MAX_PARTICIPANT_COUNT = 10
+    MAX_TRIP_DAYS = 3
     MAX_ROUTE_CANDIDATES = 8
     MAX_NEAREST_DESTINATIONS_PER_CANDIDATE = 3
 
@@ -48,6 +50,12 @@ class TripService:
     ) -> TripAggregate:
         if trip.participant_count < 1:
             raise ValueError("participant_count must be greater than or equal to 1")
+        if trip.participant_count > self.MAX_PARTICIPANT_COUNT:
+            raise ValueError(
+                f"participant_count must be less than or equal to {self.MAX_PARTICIPANT_COUNT}"
+            )
+        if (trip.end_date - trip.start_date).days + 1 > self.MAX_TRIP_DAYS:
+            raise ValueError(f"trip duration must be less than or equal to {self.MAX_TRIP_DAYS} days")
         if trip.save_count < 0:
             raise ValueError("save_count must be greater than or equal to 0")
         invalid_categories = [
@@ -73,10 +81,21 @@ class TripService:
     async def update_my_trip(self, user_id: int, trip_id: int, **kwargs) -> Trip:
         aggregate = await self.get_my_trip_detail(user_id=user_id, trip_id=trip_id)
         trip = aggregate.trip
+        next_start_date = kwargs.get("start_date") if kwargs.get("start_date") is not None else trip.start_date
+        next_end_date = kwargs.get("end_date") if kwargs.get("end_date") is not None else trip.end_date
+        next_participant_count = (
+            kwargs.get("participant_count") if kwargs.get("participant_count") is not None else trip.participant_count
+        )
 
         if "participant_count" in kwargs and kwargs["participant_count"] is not None:
             if kwargs["participant_count"] < 1:
                 raise ValueError("participant_count must be greater than or equal to 1")
+        if next_participant_count > self.MAX_PARTICIPANT_COUNT:
+            raise ValueError(
+                f"participant_count must be less than or equal to {self.MAX_PARTICIPANT_COUNT}"
+            )
+        if (next_end_date - next_start_date).days + 1 > self.MAX_TRIP_DAYS:
+            raise ValueError(f"trip duration must be less than or equal to {self.MAX_TRIP_DAYS} days")
         if "save_count" in kwargs and kwargs["save_count"] is not None:
             if kwargs["save_count"] < 0:
                 raise ValueError("save_count must be greater than or equal to 0")
