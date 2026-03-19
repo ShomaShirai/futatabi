@@ -24,7 +24,11 @@ let createTripDraft: CreateTripDraft = {
 
 export function getCreateTripDraft(): CreateTripDraft {
   return {
-    formValues: { ...createTripDraft.formValues, recommendationCategories: [...createTripDraft.formValues.recommendationCategories] },
+    formValues: {
+      ...createTripDraft.formValues,
+      recommendationCategories: [...createTripDraft.formValues.recommendationCategories],
+      transportTypes: [...createTripDraft.formValues.transportTypes],
+    },
     selectedCompanionUserIds: [...createTripDraft.selectedCompanionUserIds],
   };
 }
