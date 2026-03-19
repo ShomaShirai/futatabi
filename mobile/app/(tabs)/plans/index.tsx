@@ -419,10 +419,12 @@ export default function PlansListScreen() {
                     }
                     minimumDate={activePicker === 'end' ? parseDateInput(startDateFilter) ?? undefined : undefined}
                     onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
-                      if (event.type !== 'set' || !selectedDate || activePicker === null || activePicker === 'people') {
+                      if (event.type !== 'set' || !selectedDate) {
                         return;
                       }
-                      applyDateFilter(activePicker, selectedDate);
+                      if (activePicker === 'start' || activePicker === 'end') {
+                        applyDateFilter(activePicker, selectedDate);
+                      }
                     }}
                   />
                 </View>
