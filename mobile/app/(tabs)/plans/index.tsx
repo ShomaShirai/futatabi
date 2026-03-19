@@ -20,11 +20,9 @@ import {
 import { weatherMock } from '@/data/travel';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { getTrips } from '@/features/trips/api/get-trips';
-import { startTrip } from '@/features/trips/api/start-trip';
 import { type TripResponse } from '@/features/trips/types/trip-edit';
 import { type TripListItemViewModel, type TripSortOrder } from '@/features/trips/types/trip-list';
 import { filterTripListItems, toTripListItemViewModel } from '@/features/trips/utils/trip-list';
-import { getApiErrorMessage } from '@/lib/api/client';
 
 type PickerType = 'category' | 'people' | 'start' | 'end' | null;
 
@@ -134,7 +132,6 @@ export default function PlansListScreen() {
   const [endDateFilter, setEndDateFilter] = useState('');
   const [sortOrder, setSortOrder] = useState<TripSortOrder>('newest');
   const [activePicker, setActivePicker] = useState<PickerType>(null);
-  const [startingTripId, setStartingTripId] = useState<number | null>(null);
 
   const loadTrips = useCallback(async () => {
     try {
@@ -221,35 +218,6 @@ export default function PlansListScreen() {
       current.includes(category) ? current.filter((item) => item !== category) : [...current, category]
     );
   }, []);
-
-  const handleStartTrip = useCallback(
-    async (tripId: number, status: TripListItemViewModel['status']) => {
-      if (status !== 'planned' || startingTripId !== null) {
-        return;
-      }
-
-      try {
-        setStartingTripId(tripId);
-        await startTrip(tripId);
-        await loadTrips();
-        Alert.alert('旅行開始', '旅行中のプランを更新しました。ホーム画面にも反映されます。');
-      } catch (error) {
-        Alert.alert(
-          '更新失敗',
-          getApiErrorMessage(error, {
-            fallback: '旅行開始に失敗しました。',
-            unauthorized: '認証が切れています。再ログイン後にお試しください。',
-            forbidden: 'この計画を開始する権限がありません。',
-            notFound: '対象の計画が見つかりませんでした。',
-            defaultWithStatus: true,
-          })
-        );
-      } finally {
-        setStartingTripId(null);
-      }
-    },
-    [loadTrips, startingTripId]
-  );
 
   const resetPicker = useCallback(() => {
     if (activePicker === 'people') {
@@ -386,29 +354,9 @@ export default function PlansListScreen() {
                       <Text style={styles.metaText}>{plan.createdLabel}</Text>
                     </View>
                   ) : null}
-                  <View style={styles.metaActionRow}>
-                    <View style={[styles.metaRow, styles.metaRowCompact]}>
-                      <MaterialIcons name="group" size={18} color="#64748B" />
-                      <Text style={styles.metaText}>{plan.peopleLabel}</Text>
-                    </View>
-
-                    {plan.status !== 'completed' ? (
-                      <Pressable
-                        style={[
-                          styles.actionButtonBase,
-                          styles.startButton,
-                          plan.status === 'planned' && startingTripId !== plan.id
-                            ? styles.startButtonActive
-                            : styles.startButtonDisabled,
-                        ]}
-                        onPress={() => handleStartTrip(plan.id, plan.status)}
-                        disabled={plan.status !== 'planned' || startingTripId !== null}
-                      >
-                        <Text style={styles.startButtonText}>
-                          {startingTripId === plan.id ? '開始中...' : plan.status === 'ongoing' ? '旅行中' : '旅行開始'}
-                        </Text>
-                      </Pressable>
-                    ) : null}
+                  <View style={[styles.metaRow, styles.metaRowCompact]}>
+                    <MaterialIcons name="group" size={18} color="#64748B" />
+                    <Text style={styles.metaText}>{plan.peopleLabel}</Text>
                   </View>
                 </View>
 
@@ -725,12 +673,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  metaActionRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
   metaText: {
     fontSize: 14,
     color: '#64748B',
@@ -793,24 +735,6 @@ const styles = StyleSheet.create({
   },
   detailButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  startButton: {
-  },
-  startButtonActive: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#FDBA74',
-  },
-  startButtonDisabled: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  startButtonText: {
-    color: '#EC5B13',
     fontSize: 13,
     fontWeight: '800',
     textAlign: 'center',
