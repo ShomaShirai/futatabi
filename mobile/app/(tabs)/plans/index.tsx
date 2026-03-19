@@ -36,7 +36,10 @@ const CATEGORY_OPTIONS = ['カフェ', '夜景', 'グルメ', '温泉'] as const
 function parseDateInput(value: string) {
   if (!value) return null;
   const normalized = value.replace(/\./g, '/').replace(/-/g, '/');
-  const parsed = new Date(normalized);
+  const match = normalized.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  const parsed = new Date(Number(year), Number(month) - 1, Number(day));
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
