@@ -143,15 +143,18 @@ export default function PlansListScreen() {
   const planItems = useMemo<TripListItemViewModel[]>(() => plans.map(toTripListItemViewModel), [plans]);
 
   const filteredPlans = useMemo(
-    () =>
-      filterTripListItems(planItems, {
+    () => {
+      const filters = {
         keyword,
         categories: categoryFilter,
         startDate: startDateFilter,
         endDate: endDateFilter,
         sortOrder,
         participantCount: peopleFilter,
-      }),
+      };
+
+      return filterTripListItems(planItems, filters);
+    },
     [categoryFilter, endDateFilter, keyword, peopleFilter, planItems, sortOrder, startDateFilter]
   );
 
