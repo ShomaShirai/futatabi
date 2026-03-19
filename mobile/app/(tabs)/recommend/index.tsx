@@ -51,11 +51,6 @@ function parseDateInput(value: string) {
   return parsed;
 }
 
-function parseDateValue(value: string): number | null {
-  const parsed = parseDateInput(value);
-  return parsed ? parsed.getTime() : null;
-}
-
 function parseTimestampValue(value?: string | null): number | null {
   if (!value) return null;
   const parsed = new Date(value).getTime();
