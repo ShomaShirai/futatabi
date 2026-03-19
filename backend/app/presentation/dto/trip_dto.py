@@ -1,7 +1,7 @@
 from datetime import date as dt_date, datetime
 from typing import Optional, Literal
 
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, model_validator, root_validator
 
 from app.domain.entities.trip import TripAtmosphere
 
@@ -27,6 +27,14 @@ class TripCreate(BaseModel):
     save_count: int = 0
     status: Literal["planned", "ongoing", "completed"] = "planned"
     preference: Optional[TripPreferenceCreate] = None
+
+    @model_validator(mode="after")
+    def validate_trip_constraints(self) -> "TripCreate":
+        if self.participant_count > 10:
+            raise ValueError("participant_count must be less than or equal to 10")
+        if (self.end_date - self.start_date).days + 1 > 3:
+            raise ValueError("trip duration must be less than or equal to 3 days")
+        return self
 
 
 class TripUpdate(BaseModel):
