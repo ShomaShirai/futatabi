@@ -312,5 +312,11 @@ ALTER TABLE itinerary_items ALTER COLUMN item_type SET NOT NULL;
 
 UPDATE alembic_version SET version_num='c4d6e8f0a113' WHERE alembic_version.version_num = 'b2f4d6e8a102';
 
+-- Running upgrade c4d6e8f0a113 -> d5e7f9a1b214
+
+ALTER TABLE trips ADD COLUMN recommendation_comment TEXT;
+
+UPDATE alembic_version SET version_num='d5e7f9a1b214' WHERE alembic_version.version_num = 'c4d6e8f0a113';
+
 COMMIT;
 

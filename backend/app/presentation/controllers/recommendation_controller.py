@@ -135,12 +135,13 @@ async def clone_recommendation(
         end_date=source_trip.end_date,
         participant_count=source_trip.participant_count,
         source_trip_id=recommendation_id,
-        counts_as_saved_recommendation=payload.mode == "use",
-        is_public=False,
-        cover_image_url=source_trip.cover_image_url,
-        recommendation_categories=source_trip.recommendation_categories,
-        save_count=0,
-        status=source_trip.status,
+            counts_as_saved_recommendation=payload.mode == "use",
+            is_public=False,
+            cover_image_url=source_trip.cover_image_url,
+            recommendation_comment=source_trip.recommendation_comment,
+            recommendation_categories=source_trip.recommendation_categories,
+            save_count=0,
+            status=source_trip.status,
     )
     db.add(cloned_trip)
     await db.flush()
@@ -338,12 +339,17 @@ async def get_recommendation_detail(
         title=f"{trip.origin} → {trip.destination}",
         image=trip.cover_image_url or "",
         username=user.username,
-        date=trip.created_at.strftime("%Y年%m月%d日") if trip.created_at else "",
+        created_at=trip.created_at,
+        start_date=trip.start_date.isoformat(),
+        end_date=trip.end_date.isoformat(),
         area=trip.destination,
-        intro=(
-            f"{trip.destination}を中心に回る公開プランです。"
-            if preference is None
-            else f"{preference.atmosphere.value}な雰囲気で回る公開プランです。"
+        comment=(
+            trip.recommendation_comment
+            or (
+                f"{trip.destination}を中心に回る公開プランです。"
+                if preference is None
+                else f"{preference.atmosphere.value}な雰囲気で回る公開プランです。"
+            )
         ),
         budget=(
             f"¥{preference.budget:,}" if preference and preference.budget is not None else "未設定"
