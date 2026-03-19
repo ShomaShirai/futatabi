@@ -45,6 +45,12 @@ export function validateAndBuildCreateTripPayload(
       message: '人数は1以上の整数で入力してください。',
     };
   }
+  if (participantCount > 10) {
+    return {
+      ok: false,
+      message: '人数は10人以下で入力してください。',
+    };
+  }
 
   if (!DATE_PATTERN.test(startDate) || !DATE_PATTERN.test(endDate)) {
     return {
@@ -60,6 +66,13 @@ export function validateAndBuildCreateTripPayload(
     return {
       ok: false,
       message: '終了日は出発日以降の日付を入力してください。',
+    };
+  }
+  const tripDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  if (tripDays > 3) {
+    return {
+      ok: false,
+      message: 'プラン作成は最大3日間までです。',
     };
   }
 

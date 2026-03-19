@@ -57,6 +57,8 @@ const destinationSuggestions = ['東京', '大阪', '京都', '札幌', '福岡'
 type DateFieldKey = 'startDate' | 'endDate';
 const BUDGET_SLIDER_MIN = 0;
 const BUDGET_SLIDER_STEP = 10000;
+const MAX_PARTICIPANT_COUNT = 10;
+const MAX_TRIP_DAYS = 3;
 
 function parseDateInput(value: string) {
   if (!value) return null;
@@ -84,6 +86,12 @@ function formatDateDisplay(value: string) {
   const parsed = parseDateInput(value);
   if (!parsed) return value;
   return `${parsed.getFullYear()}/${String(parsed.getMonth() + 1).padStart(2, '0')}/${String(parsed.getDate()).padStart(2, '0')}`;
+}
+
+function addDays(base: Date, days: number) {
+  const next = new Date(base);
+  next.setDate(next.getDate() + days);
+  return next;
 }
 
 function clampBudgetValue(value: number, max: number) {
@@ -118,13 +126,21 @@ export default function PlanCreateScreen() {
     setFields((prev) => {
       const next = { ...prev, [field]: formatted };
       const start = parseDateInput(field === 'startDate' ? formatted : prev.startDate);
-      const end = parseDateInput(field === 'endDate' ? formatted : prev.endDate);
+      let end = parseDateInput(field === 'endDate' ? formatted : prev.endDate);
 
-      if (start && end && end.getTime() < start.getTime()) {
-        if (field === 'startDate') {
-          next.endDate = formatted;
-        } else {
-          next.startDate = formatted;
+      if (start && end) {
+        if (end.getTime() < start.getTime()) {
+          if (field === 'startDate') {
+            next.endDate = formatted;
+            end = start;
+          } else {
+            next.startDate = formatted;
+          }
+        }
+
+        const maxEnd = addDays(start, MAX_TRIP_DAYS - 1);
+        if (end.getTime() > maxEnd.getTime()) {
+          next.endDate = formatDateInput(maxEnd);
         }
       }
 
@@ -144,6 +160,13 @@ export default function PlanCreateScreen() {
         display: 'calendar',
         value: baseValue,
         minimumDate: field === 'endDate' ? parseDateInput(fields.startDate) ?? undefined : undefined,
+        maximumDate:
+          field === 'endDate'
+            ? (() => {
+                const start = parseDateInput(fields.startDate);
+                return start ? addDays(start, MAX_TRIP_DAYS - 1) : undefined;
+              })()
+            : undefined,
         onChange: (event, selectedDate) => {
           if (event.type !== 'set' || !selectedDate) {
             return;
@@ -387,13 +410,21 @@ export default function PlanCreateScreen() {
                 </View>
 
                 <Pressable
-                  style={styles.stepperButton}
+                  style={[
+                    styles.stepperButton,
+                    Number(fields.participantCount) >= MAX_PARTICIPANT_COUNT ? styles.stepperButtonDisabled : null,
+                  ]}
                   onPress={() => {
-                    const next = Math.max(1, Number(fields.participantCount || '1') + 1);
+                    const next = Math.min(MAX_PARTICIPANT_COUNT, Math.max(1, Number(fields.participantCount || '1') + 1));
                     updateField('participantCount', String(next));
                   }}
+                  disabled={Number(fields.participantCount) >= MAX_PARTICIPANT_COUNT}
                 >
-                  <MaterialIcons name="add" size={20} color="#334155" />
+                  <MaterialIcons
+                    name="add"
+                    size={20}
+                    color={Number(fields.participantCount) >= MAX_PARTICIPANT_COUNT ? '#94A3B8' : '#334155'}
+                  />
                 </Pressable>
               </View>
             ) : item.key === 'budget' ? (
@@ -548,6 +579,14 @@ export default function PlanCreateScreen() {
               themeVariant="light"
               value={iosPickerValue}
               minimumDate={activeDateField === 'endDate' ? parseDateInput(fields.startDate) ?? undefined : undefined}
+              maximumDate={
+                activeDateField === 'endDate'
+                  ? (() => {
+                      const start = parseDateInput(fields.startDate);
+                      return start ? addDays(start, MAX_TRIP_DAYS - 1) : undefined;
+                    })()
+                  : undefined
+              }
               onChange={handleIosDateChange}
             />
           </View>
