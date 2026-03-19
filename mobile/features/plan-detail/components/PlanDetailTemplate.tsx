@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { ReactNode } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ReactNode, useState } from 'react';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { type PlanDetailDay, type PlanDetailTimelineItem } from '@/features/plan-detail/types';
@@ -58,6 +58,8 @@ export function PlanDetailTemplate({
   secondaryButtonVariant = 'light',
   footerSlot,
 }: PlanDetailTemplateProps) {
+  const [selectedTransportItem, setSelectedTransportItem] = useState<PlanDetailTimelineItem | null>(null);
+
   return (
     <View style={styles.screen}>
       <AppHeader title={headerTitle} weatherLabel={weatherLabel} leftSlot={headerLeftSlot} rightSlot={headerRightSlot} />
@@ -123,13 +125,14 @@ export function PlanDetailTemplate({
                     </View>
 
                     <View style={styles.transportBubbleWrap}>
-                      <View style={styles.transportBubble}>
+                      <Pressable style={styles.transportBubble} onPress={() => setSelectedTransportItem(item)}>
                         <MaterialIcons name={item.icon ?? 'directions-bus'} size={18} color="#2563EB" />
                         <Text style={styles.transportTitle}>{item.title}</Text>
                         {item.metaLabel ? <View style={styles.transportDot} /> : null}
                         {item.durationLabel ? <Text style={styles.transportDuration}>{item.durationLabel}</Text> : null}
                         {item.metaLabel ? <Text style={styles.transportMeta}>{item.metaLabel}</Text> : null}
-                      </View>
+                        <MaterialIcons name="chevron-right" size={16} color="#94A3B8" />
+                      </Pressable>
                     </View>
                   </View>
                 ) : (
@@ -210,6 +213,64 @@ export function PlanDetailTemplate({
           {footerSlot}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={selectedTransportItem !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedTransportItem(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setSelectedTransportItem(null)}>
+          <Pressable style={styles.modalSheet} onPress={() => {}}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <View style={styles.modalIconWrap}>
+                  <MaterialIcons name={selectedTransportItem?.icon ?? 'directions-bus'} size={18} color="#2563EB" />
+                </View>
+                <Text style={styles.modalTitle}>{selectedTransportItem?.title ?? '移動詳細'}</Text>
+              </View>
+              <Pressable style={styles.modalCloseButton} onPress={() => setSelectedTransportItem(null)}>
+                <MaterialIcons name="close" size={18} color="#64748B" />
+              </Pressable>
+            </View>
+
+            {selectedTransportItem?.durationLabel ? (
+              <View style={styles.modalBadgeRow}>
+                <View style={styles.modalBadge}>
+                  <Text style={styles.modalBadgeText}>移動時間 {selectedTransportItem.durationLabel}</Text>
+                </View>
+                {selectedTransportItem.metaLabel ? (
+                  <View style={[styles.modalBadge, styles.modalBadgeMuted]}>
+                    <Text style={[styles.modalBadgeText, styles.modalBadgeTextMuted]}>
+                      {selectedTransportItem.metaLabel}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            <View style={styles.modalInfoCard}>
+              <View style={styles.modalInfoRow}>
+                <Text style={styles.modalInfoLabel}>出発</Text>
+                <Text style={styles.modalInfoValue}>{selectedTransportItem?.start ?? '--:--'}</Text>
+              </View>
+              <View style={styles.modalInfoDivider} />
+              <View style={styles.modalInfoRow}>
+                <Text style={styles.modalInfoLabel}>到着</Text>
+                <Text style={styles.modalInfoValue}>{selectedTransportItem?.end ?? '--:--'}</Text>
+              </View>
+            </View>
+
+            {selectedTransportItem?.body ? (
+              <View style={styles.modalDetailSection}>
+                <Text style={styles.modalDetailLabel}>ルート詳細</Text>
+                <Text style={styles.modalDetailBody}>{selectedTransportItem.body}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -508,6 +569,130 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#64748B',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.28)',
+    justifyContent: 'flex-end',
+    padding: 16,
+  },
+  modalSheet: {
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  modalHandle: {
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#E2E8F0',
+    marginBottom: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  modalIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+  modalBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 16,
+  },
+  modalBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  modalBadgeMuted: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  modalBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  modalBadgeTextMuted: {
+    color: '#475569',
+  },
+  modalInfoCard: {
+    marginTop: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    overflow: 'hidden',
+  },
+  modalInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  modalInfoDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+  },
+  modalInfoLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  modalInfoValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalDetailSection: {
+    marginTop: 16,
+    gap: 8,
+  },
+  modalDetailLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  modalDetailBody: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#334155',
   },
   emptyTimelineCard: {
     backgroundColor: '#FFFFFF',
