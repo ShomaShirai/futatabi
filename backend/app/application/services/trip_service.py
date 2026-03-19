@@ -565,8 +565,10 @@ class TripService:
             for d in days
         ]
         candidates_payload = [candidate.to_dict() for candidate in place_candidates]
+        selected_transport_types = self._parse_selected_transport_types(preference.transport_type if preference is not None else None)
         route_options_payload = [
-            self._normalize_route_option_dict(route_option.to_dict()) for route_option in route_options
+            self._normalize_route_option_dict(route_option.to_dict())
+            for route_option in self._filter_route_options_by_preference(route_options, selected_transport_types)
         ]
         preference_payload = (
             {
@@ -591,6 +593,8 @@ class TripService:
             f"trip={json.dumps({'origin': trip.origin, 'destination': trip.destination}, ensure_ascii=False)}\n"
             f"days={json.dumps(days_payload, ensure_ascii=False)}\n"
             f"preference={json.dumps(preference_payload, ensure_ascii=False)}\n"
+            f"recommended_categories={json.dumps(trip.recommendation_categories, ensure_ascii=False)}\n"
+            f"selected_transport_types={json.dumps(selected_transport_types, ensure_ascii=False)}\n"
             f"candidates={json.dumps(candidates_payload, ensure_ascii=False)}\n"
             f"route_options={json.dumps(route_options_payload, ensure_ascii=False)}\n"
             "ルール:\n"
@@ -600,10 +604,55 @@ class TripService:
             "- place 同士の間には transport を入れる\n"
             "- start_time/end_time は HH:MM\n"
             "- candidatesにある名称を優先利用\n"
-            "- transport は route_options にある候補のみ使う\n"
-            "- transport_mode は WALK / TRAIN / BUS のみ使う\n"
-            "- route_options に候補が無い場合のみ WALK を使う\n"
+            "- recommended_categories にあるカテゴリは、可能な限り各カテゴリを少なくとも1回は含める\n"
+            "- transport は selected_transport_types に対応するものを優先して使う\n"
+            "- 徒歩は selected_transport_types に含まれていなくても使ってよい\n"
+            "- 徒歩以外で、selected_transport_types に含まれない移動手段は絶対に使わない\n"
+            "- transport は route_options にある候補を優先して使う\n"
+            "- route_options が不足する場合も、徒歩以外で selected_transport_types に無い手段は使わない\n"
         )
+
+    def _parse_selected_transport_types(self, raw_value: Optional[str]) -> list[str]:
+        if raw_value is None:
+            return []
+
+        # Normalize case and keep only supported transport types.
+        # If all tokens are invalid, return an empty list to indicate
+        # "no filtering" to _filter_route_options_by_preference.
+        allowed_types = {"train", "bus", "walk"}
+        normalized_tokens: list[str] = []
+        for item in raw_value.split(","):
+            token = item.strip().lower()
+            if not token:
+                continue
+            if token in allowed_types:
+                normalized_tokens.append(token)
+
+        return normalized_tokens if normalized_tokens else []
+
+    def _filter_route_options_by_preference(
+        self,
+        route_options: list[RouteOption],
+        selected_transport_types: list[str],
+    ) -> list[RouteOption]:
+        if not selected_transport_types:
+            return route_options
+
+        allow_walk = True
+        allow_train = "train" in selected_transport_types
+        allow_bus = "bus" in selected_transport_types
+
+        filtered: list[RouteOption] = []
+        for option in route_options:
+            normalized = self._normalize_route_option_dict(option.to_dict())
+            transport_mode = normalized.get("transport_mode")
+            if transport_mode == "WALK" and allow_walk:
+                filtered.append(option)
+            elif transport_mode == "TRAIN" and allow_train:
+                filtered.append(option)
+            elif transport_mode == "BUS" and allow_bus:
+                filtered.append(option)
+        return filtered
 
     def _normalize_route_option_dict(self, option: dict) -> dict:
         """

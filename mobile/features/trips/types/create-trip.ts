@@ -8,7 +8,8 @@ export type CreateTripRequest = {
   start_date: string;
   end_date: string;
   participant_count: number;
-  status?: TripStatus;
+  recommendation_categories?: string[];
+  status?: 'planned' | 'ongoing' | 'completed';
   preference?: {
     atmosphere: TripAtmosphere;
     companions?: string;

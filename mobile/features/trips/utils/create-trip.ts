@@ -1,4 +1,4 @@
-import { type CreateTripRequest } from '@/features/trips/types/create-trip';
+import { type CreateTripRequest, type TripAtmosphere } from '@/features/trips/types/create-trip';
 
 export type CreateTripFormValues = {
   origin: string;
@@ -7,19 +7,23 @@ export type CreateTripFormValues = {
   endDate: string;
   participantCount: string;
   budget: string;
+  atmosphere: string;
+  recommendationCategories: string[];
+  transportTypes: string[];
 };
 
 export type CreateTripValidationResult =
   | {
-      ok: true;
-      payload: CreateTripRequest;
-    }
+    ok: true;
+    payload: CreateTripRequest;
+  }
   | {
-      ok: false;
-      message: string;
-    };
+    ok: false;
+    message: string;
+  };
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const FALLBACK_ATMOSPHERE: TripAtmosphere = 'のんびり';
 
 export function validateAndBuildCreateTripPayload(
   values: CreateTripFormValues
@@ -30,11 +34,12 @@ export function validateAndBuildCreateTripPayload(
   const endDate = values.endDate.trim();
   const participantCountText = values.participantCount.trim();
   const budgetText = values.budget.trim();
-
+  const atmosphere = values.atmosphere.trim();
+  const recommendationCategories = values.recommendationCategories;
   if (!origin || !destination || !startDate || !endDate) {
     return {
       ok: false,
-      message: '出発地・目的地・日程は必須です。',
+      message: '必須項目が未入力です',
     };
   }
 
@@ -76,17 +81,30 @@ export function validateAndBuildCreateTripPayload(
     };
   }
 
-  let budget: number | undefined;
-  if (budgetText) {
-    const parsedBudget = Number(budgetText);
-    if (!Number.isInteger(parsedBudget) || parsedBudget <= 0) {
-      return {
-        ok: false,
-        message: '予算は正の整数で入力してください。',
-      };
-    }
-    budget = parsedBudget;
+  if (!budgetText) {
+    return {
+      ok: false,
+      message: '予算は必須です。',
+    };
   }
+  const parsedBudgetPerPerson = Number(budgetText);
+  if (!Number.isInteger(parsedBudgetPerPerson) || parsedBudgetPerPerson <= 0) {
+    return {
+      ok: false,
+      message: '予算は1人あたりの正の整数で入力してください。',
+    };
+  }
+  if (parsedBudgetPerPerson > 100000) {
+    return {
+      ok: false,
+      message: '予算は1人あたり10万円以下で入力してください。',
+    };
+  }
+  const budget = parsedBudgetPerPerson * participantCount;
+
+  const safeAtmosphere: TripAtmosphere = atmosphere
+    ? (atmosphere as TripAtmosphere)
+    : FALLBACK_ATMOSPHERE;
 
   return {
     ok: true,
@@ -96,13 +114,13 @@ export function validateAndBuildCreateTripPayload(
       start_date: startDate,
       end_date: endDate,
       participant_count: participantCount,
+      recommendation_categories: recommendationCategories,
       status: 'planned',
-      preference: budget
-        ? {
-            atmosphere: 'のんびり',
-            budget,
-          }
-        : undefined,
+      preference: {
+        atmosphere: safeAtmosphere,
+        budget,
+        transport_type: 'train,bus',
+      },
     },
   };
 }

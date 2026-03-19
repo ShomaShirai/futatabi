@@ -5,13 +5,11 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Animated,
   Modal,
-  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -24,7 +22,6 @@ import {
 import { weatherMock } from '@/data/travel';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
-import { createTrip } from '@/features/trips/api/create-trip';
 import {
   type CreateTripFormValues,
   validateAndBuildCreateTripPayload,
@@ -48,17 +45,20 @@ const formItems = [
   },
   {
     key: 'budget',
-    label: '予算（任意）',
-    placeholder: '例: 120000',
+    label: '1人あたりの予算（全日程）',
+    placeholder: '',
   },
 ] as const;
 
 const destinationSuggestions = ['東京', '大阪', '京都', '札幌', '福岡', '那覇', '箱根', '軽井沢'] as const;
+const ATMOSPHERE_OPTIONS = ['のんびり', 'アクティブ', 'グルメ', '映え'] as const;
+const RECOMMEND_CATEGORY_OPTIONS = ['カフェ', '夜景', 'グルメ', '温泉'] as const;
 type DateFieldKey = 'startDate' | 'endDate';
-const BUDGET_SLIDER_MIN = 0;
-const BUDGET_SLIDER_STEP = 10000;
+const BUDGET_STEP = 10000;
 const MAX_PARTICIPANT_COUNT = 10;
 const MAX_TRIP_DAYS = 3;
+const MAX_BUDGET_PER_PERSON = 100000;
+const REQUIRED_FIELD_KEYS = new Set(['origin', 'destination', 'participantCount', 'budget'] as const);
 
 function parseDateInput(value: string) {
   if (!value) return null;
@@ -94,31 +94,50 @@ function addDays(base: Date, days: number) {
   return next;
 }
 
-function clampBudgetValue(value: number, max: number) {
-  const stepped = Math.round(value / BUDGET_SLIDER_STEP) * BUDGET_SLIDER_STEP;
-  return Math.min(max, Math.max(BUDGET_SLIDER_MIN, stepped));
+function subtractDays(base: Date, days: number) {
+  return addDays(base, -days);
+}
+
+function FieldLabel({ label, required = false }: { label: string; required?: boolean }) {
+  return (
+    <View style={styles.fieldLabelRow}>
+      <Text style={[travelStyles.sectionBody, styles.fieldLabel]}>{label}</Text>
+      {required ? <Text style={styles.requiredMark}>※</Text> : null}
+    </View>
+  );
 }
 
 export default function PlanCreateScreen() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResolvingCurrentLocation, setIsResolvingCurrentLocation] = useState(false);
+  const isResolvingCurrentLocationRef = useRef(false);
   const [activeDateField, setActiveDateField] = useState<DateFieldKey>('startDate');
   const [isIosDateModalVisible, setIsIosDateModalVisible] = useState(false);
-  const [budgetSliderWidth, setBudgetSliderWidth] = useState(1);
-  const budgetSliderProgress = useRef(new Animated.Value(0)).current;
   const [fields, setFields] = useState<CreateTripFormValues>({
     origin: '',
     destination: '',
     startDate: '',
     endDate: '',
     participantCount: '1',
-    budget: '',
+    budget: '10000',
+    atmosphere: 'RELAXED',
+    recommendationCategories: [],
+    transportTypes: [],
   });
 
   const updateField = (key: (typeof formItems)[number]['key'], value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
   };
+
+  const toggleRecommendationCategory = useCallback((category: string) => {
+    setFields((prev) => ({
+      ...prev,
+      recommendationCategories: prev.recommendationCategories.includes(category)
+        ? prev.recommendationCategories.filter((item) => item !== category)
+        : [...prev.recommendationCategories, category],
+    }));
+  }, []);
 
   const applyDateField = useCallback((field: DateFieldKey, date: Date) => {
     const formatted = formatDateInput(date);
@@ -159,14 +178,20 @@ export default function PlanCreateScreen() {
         mode: 'date',
         display: 'calendar',
         value: baseValue,
-        minimumDate: field === 'endDate' ? parseDateInput(fields.startDate) ?? undefined : undefined,
+        minimumDate:
+          field === 'endDate'
+            ? parseDateInput(fields.startDate) ?? undefined
+            : (() => {
+              const end = parseDateInput(fields.endDate);
+              return end ? subtractDays(end, MAX_TRIP_DAYS - 1) : undefined;
+            })(),
         maximumDate:
           field === 'endDate'
             ? (() => {
-                const start = parseDateInput(fields.startDate);
-                return start ? addDays(start, MAX_TRIP_DAYS - 1) : undefined;
-              })()
-            : undefined,
+              const start = parseDateInput(fields.startDate);
+              return start ? addDays(start, MAX_TRIP_DAYS - 1) : undefined;
+            })()
+            : parseDateInput(fields.endDate) ?? undefined,
         onChange: (event, selectedDate) => {
           if (event.type !== 'set' || !selectedDate) {
             return;
@@ -221,70 +246,15 @@ export default function PlanCreateScreen() {
     return parsed;
   }, [fields.participantCount]);
 
-  const budgetSliderMax = useMemo(() => participantCountNumber * 100000, [participantCountNumber]);
+  const budgetSliderMax = MAX_BUDGET_PER_PERSON;
 
   const budgetRawValue = useMemo(() => {
     const parsed = Number(fields.budget);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      return 0;
+    if (!Number.isFinite(parsed) || parsed < BUDGET_STEP) {
+      return BUDGET_STEP;
     }
     return parsed;
   }, [fields.budget]);
-
-  const budgetSliderValue = useMemo(() => Math.min(budgetRawValue, budgetSliderMax), [budgetRawValue, budgetSliderMax]);
-
-  const budgetDisplayLabel = useMemo(() => {
-    if (budgetRawValue <= 0) {
-      return '未設定';
-    }
-    if (budgetRawValue >= budgetSliderMax) {
-      return `${budgetSliderMax.toLocaleString('ja-JP')}円+`;
-    }
-    return `${budgetRawValue.toLocaleString('ja-JP')}円`;
-  }, [budgetRawValue, budgetSliderMax]);
-
-  const updateBudgetFromRatio = useCallback(
-    (ratio: number) => {
-      const normalized = Math.min(1, Math.max(0, ratio));
-      budgetSliderProgress.setValue(normalized);
-      const nextValue = clampBudgetValue(BUDGET_SLIDER_MIN + normalized * budgetSliderMax, budgetSliderMax);
-      updateField('budget', nextValue <= 0 ? '' : String(nextValue));
-    },
-    [budgetSliderMax, budgetSliderProgress, updateField]
-  );
-
-  const budgetSliderPanResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (event) => {
-          updateBudgetFromRatio(event.nativeEvent.locationX / budgetSliderWidth);
-        },
-        onPanResponderMove: (event) => {
-          updateBudgetFromRatio(event.nativeEvent.locationX / budgetSliderWidth);
-        },
-      }),
-    [budgetSliderWidth, updateBudgetFromRatio]
-  );
-
-  useEffect(() => {
-    budgetSliderProgress.setValue(budgetSliderMax > 0 ? budgetSliderValue / budgetSliderMax : 0);
-  }, [budgetSliderMax, budgetSliderProgress, budgetSliderValue]);
-
-  const budgetFillWidth = useMemo(
-    () => budgetSliderProgress.interpolate({ inputRange: [0, 1], outputRange: [0, budgetSliderWidth] }),
-    [budgetSliderProgress, budgetSliderWidth]
-  );
-
-  const budgetThumbTranslateX = useMemo(
-    () =>
-      budgetSliderProgress.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, Math.max(0, budgetSliderWidth - 24)],
-      }),
-    [budgetSliderProgress, budgetSliderWidth]
-  );
 
   const handleIosDateChange = useCallback(
     (event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -323,7 +293,12 @@ export default function PlanCreateScreen() {
   }, []);
 
   const handleUseCurrentLocation = useCallback(async () => {
+    if (isResolvingCurrentLocationRef.current) {
+      return;
+    }
+
     try {
+      isResolvingCurrentLocationRef.current = true;
       setIsResolvingCurrentLocation(true);
       const origin = await resolveCurrentLocationLabel();
       updateField('origin', origin);
@@ -332,6 +307,7 @@ export default function PlanCreateScreen() {
       Alert.alert('現在地を取得できませんでした', message);
     } finally {
       setIsResolvingCurrentLocation(false);
+      isResolvingCurrentLocationRef.current = false;
     }
   }, [resolveCurrentLocationLabel, updateField]);
 
@@ -341,38 +317,31 @@ export default function PlanCreateScreen() {
       Alert.alert('入力エラー', result.message);
       return;
     }
-
-    try {
-      setIsSubmitting(true);
-      const created = await createTrip(result.payload);
-      Alert.alert('保存完了', '新規プランを作成しました。');
-      router.replace({
-        pathname: '/plans/detail',
-        params: { id: String(created.trip.id) },
-      });
-    } catch {
-      Alert.alert('作成失敗', 'プラン作成に失敗しました。ログイン状態やAPI接続を確認してください。');
-    } finally {
-      setIsSubmitting(false);
-    }
+    router.push({
+      pathname: '/create/companions',
+      params: {
+        origin: fields.origin,
+        destination: fields.destination,
+        startDate: fields.startDate,
+        endDate: fields.endDate,
+        participantCount: fields.participantCount,
+        budget: fields.budget,
+        atmosphere: fields.atmosphere,
+        recommendationCategories: fields.recommendationCategories.join(','),
+      },
+    });
   };
 
   return (
     <ScrollView style={travelStyles.screen} contentContainerStyle={{ paddingBottom: 24 }}>
-      <AppHeader title="新規プラン作成" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader title="基本情報の入力" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
 
       <View style={travelStyles.container}>
-        <View style={travelStyles.detailSection}>
-          <Text style={travelStyles.heading}>基本情報を入力</Text>
-          <Text style={travelStyles.sectionBody}>
-            下記を入力すると、バックエンドAPI経由でプランが作成されます。
-          </Text>
-        </View>
-
+        <Text style={styles.requiredLegend}>※必須</Text>
         {formItems.map((item) => (
-          <View key={item.key}>
+          <View key={item.key} style={styles.fieldBlock}>
             <View style={travelStyles.rowWrap}>
-              <Text style={[travelStyles.sectionBody, styles.fieldLabel]}>{item.label}</Text>
+              <FieldLabel label={item.label} required={REQUIRED_FIELD_KEYS.has(item.key)} />
               {item.key === 'origin' ? (
                 <Pressable
                   style={[
@@ -386,7 +355,7 @@ export default function PlanCreateScreen() {
                   {isResolvingCurrentLocation ? (
                     <ActivityIndicator color="#F97316" size="small" />
                   ) : (
-                    <Text style={[travelStyles.pillText, styles.currentLocationButtonText]}>現在地を使う</Text>
+                    <Text style={[travelStyles.pillText, styles.currentLocationButtonText]}>現在地を入力</Text>
                   )}
                 </Pressable>
               ) : null}
@@ -429,43 +398,44 @@ export default function PlanCreateScreen() {
               </View>
             ) : item.key === 'budget' ? (
               <View style={styles.budgetSection}>
-                <View style={styles.budgetHeaderRow}>
-                  <Text style={styles.budgetValueLabel}>{budgetDisplayLabel}</Text>
-                  <Text style={styles.budgetRangeLabel}>{budgetSliderMax.toLocaleString('ja-JP')}円+</Text>
-                </View>
-                <Text style={styles.budgetHintText}>1人あたり上限目安: 100,000円+</Text>
+                <View style={styles.stepperWrap}>
+                  <Pressable
+                    style={[styles.stepperButton, budgetRawValue <= BUDGET_STEP ? styles.stepperButtonDisabled : null]}
+                    onPress={() => {
+                      if (budgetRawValue <= BUDGET_STEP) {
+                        return;
+                      }
+                      updateField('budget', String(Math.max(BUDGET_STEP, budgetRawValue - BUDGET_STEP)));
+                    }}
+                    disabled={budgetRawValue <= BUDGET_STEP}
+                  >
+                    <MaterialIcons
+                      name="remove"
+                      size={20}
+                      color={budgetRawValue <= BUDGET_STEP ? '#94A3B8' : '#334155'}
+                    />
+                  </Pressable>
 
-                <View
-                  style={styles.budgetSliderWrap}
-                  onLayout={(event) => setBudgetSliderWidth(Math.max(1, event.nativeEvent.layout.width))}
-                  {...budgetSliderPanResponder.panHandlers}
-                >
-                  <View style={styles.budgetSliderTrack} />
-                  <Animated.View
-                    style={[
-                      styles.budgetSliderFill,
-                      { width: budgetFillWidth },
-                    ]}
-                  />
-                  <Animated.View
-                    style={[
-                      styles.budgetSliderThumb,
-                      { transform: [{ translateX: budgetThumbTranslateX }] },
-                    ]}
-                  />
-                </View>
+                  <View style={styles.stepperValueWrap}>
+                    <Text style={styles.stepperValueText}>{budgetRawValue.toLocaleString('ja-JP')}</Text>
+                    <Text style={styles.stepperValueUnit}>円 / 1人</Text>
+                  </View>
 
-                <TextInput
-                  style={[travelStyles.input, styles.budgetManualInput]}
-                  value={fields.budget}
-                  onChangeText={(value) => {
-                    const sanitized = value.replace(/[^0-9]/g, '');
-                    updateField('budget', sanitized);
-                  }}
-                  placeholder="例: 120000"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="numeric"
-                />
+                  <Pressable
+                    style={[styles.stepperButton, budgetRawValue >= budgetSliderMax ? styles.stepperButtonDisabled : null]}
+                    onPress={() => {
+                      const next = Math.min(budgetSliderMax, (budgetRawValue > 0 ? budgetRawValue : 0) + BUDGET_STEP);
+                      updateField('budget', String(next));
+                    }}
+                    disabled={budgetRawValue >= budgetSliderMax}
+                  >
+                    <MaterialIcons
+                      name="add"
+                      size={20}
+                      color={budgetRawValue >= budgetSliderMax ? '#94A3B8' : '#334155'}
+                    />
+                  </Pressable>
+                </View>
               </View>
             ) : (
               <TextInput
@@ -503,7 +473,7 @@ export default function PlanCreateScreen() {
                 </View>
 
                 <View style={styles.scheduleSection}>
-                  <Text style={[travelStyles.sectionBody, styles.fieldLabel]}>日程</Text>
+                  <FieldLabel label="日程" required />
                   <Pressable style={styles.scheduleInput} onPress={openSchedulePicker}>
                     <View style={styles.scheduleInputBody}>
                       <MaterialIcons name="calendar-month" size={20} color="#F97316" />
@@ -527,6 +497,47 @@ export default function PlanCreateScreen() {
           </View>
         ))}
 
+        <View style={styles.fieldBlock}>
+          <FieldLabel label="雰囲気" />
+          <View style={styles.optionWrap}>
+            {ATMOSPHERE_OPTIONS.map((option) => {
+              const active = fields.atmosphere === option;
+              return (
+                <Pressable
+                  key={option}
+                  style={[styles.optionChip, active && styles.optionChipActive]}
+                  onPress={() =>
+                    setFields((prev) => ({
+                      ...prev,
+                      atmosphere: prev.atmosphere === option ? '' : option,
+                    }))
+                  }
+                >
+                  <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>{option}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.fieldBlock}>
+          <FieldLabel label="カテゴリ（複数選択可）" />
+          <View style={styles.optionWrap}>
+            {RECOMMEND_CATEGORY_OPTIONS.map((option) => {
+              const active = fields.recommendationCategories.includes(option);
+              return (
+                <Pressable
+                  key={option}
+                  style={[styles.optionChip, active && styles.optionChipActive]}
+                  onPress={() => toggleRecommendationCategory(option)}
+                >
+                  <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>{option}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         <Pressable
           style={[travelStyles.primaryButton, isSubmitting ? { opacity: 0.6 } : null]}
           onPress={handleSubmit}
@@ -535,7 +546,7 @@ export default function PlanCreateScreen() {
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={travelStyles.primaryButtonText}>プランを保存して詳細を見る</Text>
+            <Text style={travelStyles.primaryButtonText}>同行者を選ぶ</Text>
           )}
         </Pressable>
       </View>
@@ -578,14 +589,21 @@ export default function PlanCreateScreen() {
               display="inline"
               themeVariant="light"
               value={iosPickerValue}
-              minimumDate={activeDateField === 'endDate' ? parseDateInput(fields.startDate) ?? undefined : undefined}
+              minimumDate={
+                activeDateField === 'endDate'
+                  ? parseDateInput(fields.startDate) ?? undefined
+                  : (() => {
+                    const end = parseDateInput(fields.endDate);
+                    return end ? subtractDays(end, MAX_TRIP_DAYS - 1) : undefined;
+                  })()
+              }
               maximumDate={
                 activeDateField === 'endDate'
                   ? (() => {
-                      const start = parseDateInput(fields.startDate);
-                      return start ? addDays(start, MAX_TRIP_DAYS - 1) : undefined;
-                    })()
-                  : undefined
+                    const start = parseDateInput(fields.startDate);
+                    return start ? addDays(start, MAX_TRIP_DAYS - 1) : undefined;
+                  })()
+                  : parseDateInput(fields.endDate) ?? undefined
               }
               onChange={handleIosDateChange}
             />
@@ -597,6 +615,58 @@ export default function PlanCreateScreen() {
 }
 
 const styles = StyleSheet.create({
+  fieldBlock: {
+    marginBottom: 18,
+  },
+  requiredLegend: {
+    alignSelf: 'flex-end',
+    marginBottom: 12,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 2,
+  },
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  requiredNote: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  optionWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  optionChip: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  optionChipActive: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FDBA74',
+  },
+  optionChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  optionChipTextActive: {
+    color: '#EA580C',
+  },
   currentLocationButton: {
     minWidth: 112,
     alignItems: 'center',
@@ -608,19 +678,26 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '700',
   },
+  requiredMark: {
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+    marginTop: -1,
+  },
   currentLocationButtonDisabled: {
     opacity: 0.7,
   },
   currentLocationButtonText: {
-    color: '#F97316',
+    color: '#0F172A',
     fontSize: 14,
     fontWeight: '700',
   },
   scheduleSection: {
-    marginTop: 14,
+    marginTop: 22,
   },
   scheduleInput: {
-    marginTop: 8,
+    marginTop: 10,
     borderWidth: 1,
     borderColor: '#CBD5E1',
     borderRadius: 12,
@@ -686,70 +763,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   stepperValueText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: '#0F172A',
   },
   stepperValueUnit: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
     color: '#64748B',
   },
   budgetSection: {
-    marginTop: 10,
-    gap: 10,
-  },
-  budgetHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  budgetValueLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  budgetRangeLabel: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  budgetHintText: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  budgetSliderWrap: {
-    height: 32,
-    justifyContent: 'center',
-  },
-  budgetSliderTrack: {
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: '#E2E8F0',
-  },
-  budgetSliderFill: {
-    position: 'absolute',
-    left: 0,
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: '#F97316',
-  },
-  budgetSliderThumb: {
-    position: 'absolute',
-    left: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 3,
-    borderColor: '#F97316',
-    shadowColor: '#F97316',
-    shadowOpacity: 0.16,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  budgetManualInput: {
     marginTop: 0,
+    gap: 0,
   },
   destinationSuggestionWrap: {
     flexDirection: 'row',
