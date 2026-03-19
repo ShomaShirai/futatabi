@@ -8,6 +8,7 @@ import { getFriends } from '@/features/friends/api/get-friends';
 import { type FriendResponse } from '@/features/friends/types/friend-request';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
+import { createAiPlanGeneration } from '@/features/trips/api/ai-plan-generation';
 import { createTrip } from '@/features/trips/api/create-trip';
 import { addTripMember } from '@/features/trips/api/trip-members';
 import {
@@ -106,8 +107,14 @@ export default function CreateCompanionsScreen() {
 
       const results = await Promise.allSettled(memberPromises);
       const hasMemberError = results.some((result) => result.status === 'rejected');
+      const aiGeneration = await createAiPlanGeneration(created.trip.id, { run_async: false });
 
-      if (hasMemberError) {
+      if (aiGeneration.status === 'failed') {
+        Alert.alert(
+          'プラン作成完了',
+          aiGeneration.error_message ?? 'プランは作成されましたが、AIで日程を生成できませんでした。詳細画面から再度お試しください。',
+        );
+      } else if (hasMemberError) {
         Alert.alert(
           'プラン作成完了',
           'プランは作成されましたが、一部の同行者を追加できませんでした。プラン詳細画面から再度追加をお試しください。',
