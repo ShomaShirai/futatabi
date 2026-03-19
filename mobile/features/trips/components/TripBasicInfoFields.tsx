@@ -248,6 +248,35 @@ export function ScheduleField({
     [activeDateField, endDate, startDate]
   );
 
+  const iosPickerMinimumDate = useMemo(() => {
+    const parsedStart = parseDateInput(startDate);
+    const parsedEnd = parseDateInput(endDate);
+
+    if (activeDateField === 'endDate') {
+      return parsedStart ?? undefined;
+    }
+
+    if (typeof maxTripDays === 'number' && maxTripDays > 0 && parsedEnd) {
+      return subtractDays(parsedEnd, maxTripDays - 1);
+    }
+
+    return undefined;
+  }, [activeDateField, endDate, maxTripDays, startDate]);
+
+  const iosPickerMaximumDate = useMemo(() => {
+    const parsedStart = parseDateInput(startDate);
+    const parsedEnd = parseDateInput(endDate);
+
+    if (activeDateField === 'endDate') {
+      if (typeof maxTripDays === 'number' && maxTripDays > 0 && parsedStart) {
+        return addDays(parsedStart, maxTripDays - 1);
+      }
+      return undefined;
+    }
+
+    return parsedEnd ?? undefined;
+  }, [activeDateField, endDate, maxTripDays, startDate]);
+
   const scheduleLabel = useMemo(() => {
     if (startDate && endDate) {
       return `${formatDateDisplay(startDate)} 〜 ${formatDateDisplay(endDate)}`;
@@ -332,6 +361,8 @@ export function ScheduleField({
               display="inline"
               themeVariant="light"
               value={iosPickerValue}
+              minimumDate={iosPickerMinimumDate}
+              maximumDate={iosPickerMaximumDate}
               onChange={handleIosDateChange}
             />
           </View>

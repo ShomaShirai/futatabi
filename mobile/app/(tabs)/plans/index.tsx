@@ -392,11 +392,23 @@ export default function PlansListScreen() {
                       <Text style={styles.metaText}>{plan.peopleLabel}</Text>
                     </View>
 
-                    <Link href={{ pathname: '/plans/detail', params: { id: String(plan.id) } }} asChild>
-                      <Pressable style={[styles.footerButton, styles.detailButton]}>
-                        <Text style={styles.detailButtonText}>詳細を表示</Text>
+                    {plan.status !== 'completed' ? (
+                      <Pressable
+                        style={[
+                          styles.actionButtonBase,
+                          styles.startButton,
+                          plan.status === 'planned' && startingTripId !== plan.id
+                            ? styles.startButtonActive
+                            : styles.startButtonDisabled,
+                        ]}
+                        onPress={() => handleStartTrip(plan.id, plan.status)}
+                        disabled={plan.status !== 'planned' || startingTripId !== null}
+                      >
+                        <Text style={styles.startButtonText}>
+                          {startingTripId === plan.id ? '開始中...' : plan.status === 'ongoing' ? '旅行中' : '旅行開始'}
+                        </Text>
                       </Pressable>
-                    </Link>
+                    ) : null}
                   </View>
                 </View>
 
@@ -413,23 +425,13 @@ export default function PlansListScreen() {
                     ) : null}
                   </View>
 
-                  {plan.status !== 'completed' ? (
-                    <Pressable
-                      style={[
-                        styles.footerButton,
-                        styles.startButton,
-                        plan.status === 'planned' && startingTripId !== plan.id
-                          ? styles.startButtonActive
-                          : styles.startButtonDisabled,
-                      ]}
-                      onPress={() => handleStartTrip(plan.id, plan.status)}
-                      disabled={plan.status !== 'planned' || startingTripId !== null}
-                    >
-                      <Text style={styles.startButtonText}>
-                        {startingTripId === plan.id ? '開始中...' : plan.status === 'ongoing' ? '旅行中' : '旅行開始'}
-                      </Text>
-                    </Pressable>
-                  ) : null}
+                  <View style={styles.footerActionRow}>
+                    <Link href={{ pathname: '/plans/detail', params: { id: String(plan.id) } }} asChild>
+                      <Pressable style={styles.detailButton}>
+                        <Text style={styles.detailButtonText}>詳細を表示</Text>
+                      </Pressable>
+                    </Link>
+                  </View>
                 </View>
               </View>
             </View>
@@ -719,15 +721,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  metaActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
   metaRowCompact: {
     flex: 1,
     minWidth: 0,
+  },
+  metaActionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   metaText: {
     fontSize: 14,
@@ -737,10 +739,20 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
   },
   footerMeta: {
+    flex: 1,
     minWidth: 0,
+  },
+  footerActionRow: {
+    width: 108,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    flexShrink: 0,
   },
   categoryList: {
     flexDirection: 'row',
@@ -760,8 +772,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#EC5B13',
   },
-  footerButton: {
-    minWidth: 92,
+  actionButtonBase: {
+    width: 108,
+    minWidth: 108,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
@@ -769,29 +782,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   detailButton: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    backgroundColor: '#FFF7ED',
+    width: 108,
+    minWidth: 108,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#EC5B13',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   detailButtonText: {
-    color: '#EC5B13',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  startButton: {
-    width: '100%',
-  },
-  startButtonActive: {
-    backgroundColor: '#EC5B13',
-  },
-  startButtonDisabled: {
-    backgroundColor: '#CBD5E1',
-  },
-  startButtonText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
+    textAlign: 'center',
+  },
+  startButton: {
+  },
+  startButtonActive: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+  },
+  startButtonDisabled: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  startButtonText: {
+    color: '#EC5B13',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
