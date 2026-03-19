@@ -22,7 +22,6 @@ import {
 import { weatherMock } from '@/data/travel';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
-import { createTrip } from '@/features/trips/api/create-trip';
 import {
   type CreateTripFormValues,
   validateAndBuildCreateTripPayload,
@@ -52,11 +51,18 @@ const formItems = [
 ] as const;
 
 const destinationSuggestions = ['東京', '大阪', '京都', '札幌', '福岡', '那覇', '箱根', '軽井沢'] as const;
+const ATMOSPHERE_OPTIONS = ['のんびり', 'アクティブ', 'グルメ', '映え'] as const;
+const RECOMMEND_CATEGORY_OPTIONS = ['カフェ', '夜景', 'グルメ', '温泉'] as const;
+const TRANSPORT_OPTIONS = [
+  { label: '電車', value: 'train' },
+  { label: 'バス', value: 'bus' },
+] as const;
 type DateFieldKey = 'startDate' | 'endDate';
 const BUDGET_STEP = 10000;
 const MAX_PARTICIPANT_COUNT = 10;
 const MAX_TRIP_DAYS = 3;
 const MAX_BUDGET_PER_PERSON = 100000;
+const REQUIRED_FIELD_KEYS = new Set(['origin', 'destination', 'participantCount', 'budget'] as const);
 
 function parseDateInput(value: string) {
   if (!value) return null;
@@ -96,6 +102,15 @@ function subtractDays(base: Date, days: number) {
   return addDays(base, -days);
 }
 
+function FieldLabel({ label, required = false }: { label: string; required?: boolean }) {
+  return (
+    <View style={styles.fieldLabelRow}>
+      <Text style={[travelStyles.sectionBody, styles.fieldLabel]}>{label}</Text>
+      {required ? <Text style={styles.requiredMark}>※</Text> : null}
+    </View>
+  );
+}
+
 export default function PlanCreateScreen() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -110,11 +125,32 @@ export default function PlanCreateScreen() {
     endDate: '',
     participantCount: '1',
     budget: '10000',
+    atmosphere: '',
+    recommendationCategories: [],
+    transportTypes: [],
   });
 
   const updateField = (key: (typeof formItems)[number]['key'], value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
   };
+
+  const toggleRecommendationCategory = useCallback((category: string) => {
+    setFields((prev) => ({
+      ...prev,
+      recommendationCategories: prev.recommendationCategories.includes(category)
+        ? prev.recommendationCategories.filter((item) => item !== category)
+        : [...prev.recommendationCategories, category],
+    }));
+  }, []);
+
+  const toggleTransportType = useCallback((transportType: string) => {
+    setFields((prev) => ({
+      ...prev,
+      transportTypes: prev.transportTypes.includes(transportType)
+        ? prev.transportTypes.filter((item) => item !== transportType)
+        : [...prev.transportTypes, transportType],
+    }));
+  }, []);
 
   const applyDateField = useCallback((field: DateFieldKey, date: Date) => {
     const formatted = formatDateInput(date);
@@ -294,20 +330,20 @@ export default function PlanCreateScreen() {
       Alert.alert('入力エラー', result.message);
       return;
     }
-
-    try {
-      setIsSubmitting(true);
-      const created = await createTrip(result.payload);
-      Alert.alert('保存完了', '新規プランを作成しました。');
-      router.replace({
-        pathname: '/plans/detail',
-        params: { id: String(created.trip.id) },
-      });
-    } catch {
-      Alert.alert('作成失敗', 'プラン作成に失敗しました。ログイン状態やAPI接続を確認してください。');
-    } finally {
-      setIsSubmitting(false);
-    }
+    router.push({
+      pathname: '/create/companions',
+      params: {
+        origin: fields.origin,
+        destination: fields.destination,
+        startDate: fields.startDate,
+        endDate: fields.endDate,
+        participantCount: fields.participantCount,
+        budget: fields.budget,
+        atmosphere: fields.atmosphere,
+        recommendationCategories: fields.recommendationCategories.join(','),
+        transportTypes: fields.transportTypes.join(','),
+      },
+    });
   };
 
   return (
@@ -315,10 +351,11 @@ export default function PlanCreateScreen() {
       <AppHeader title="基本情報の入力" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
 
       <View style={travelStyles.container}>
+        <Text style={styles.requiredLegend}>※必須</Text>
         {formItems.map((item) => (
           <View key={item.key} style={styles.fieldBlock}>
             <View style={travelStyles.rowWrap}>
-              <Text style={[travelStyles.sectionBody, styles.fieldLabel]}>{item.label}</Text>
+              <FieldLabel label={item.label} required={REQUIRED_FIELD_KEYS.has(item.key)} />
               {item.key === 'origin' ? (
                 <Pressable
                   style={[
@@ -450,7 +487,7 @@ export default function PlanCreateScreen() {
                 </View>
 
                 <View style={styles.scheduleSection}>
-                  <Text style={[travelStyles.sectionBody, styles.fieldLabel]}>日程</Text>
+                  <FieldLabel label="日程" required />
                   <Pressable style={styles.scheduleInput} onPress={openSchedulePicker}>
                     <View style={styles.scheduleInputBody}>
                       <MaterialIcons name="calendar-month" size={20} color="#F97316" />
@@ -474,6 +511,60 @@ export default function PlanCreateScreen() {
           </View>
         ))}
 
+        <View style={styles.fieldBlock}>
+          <FieldLabel label="雰囲気" />
+          <View style={styles.optionWrap}>
+            {ATMOSPHERE_OPTIONS.map((option) => {
+              const active = fields.atmosphere === option;
+              return (
+                <Pressable
+                  key={option}
+                  style={[styles.optionChip, active && styles.optionChipActive]}
+                  onPress={() => setFields((prev) => ({ ...prev, atmosphere: option }))}
+                >
+                  <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>{option}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.fieldBlock}>
+          <FieldLabel label="カテゴリ" />
+          <View style={styles.optionWrap}>
+            {RECOMMEND_CATEGORY_OPTIONS.map((option) => {
+              const active = fields.recommendationCategories.includes(option);
+              return (
+                <Pressable
+                  key={option}
+                  style={[styles.optionChip, active && styles.optionChipActive]}
+                  onPress={() => toggleRecommendationCategory(option)}
+                >
+                  <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>{option}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.fieldBlock}>
+          <FieldLabel label="移動手段" />
+          <View style={styles.optionWrap}>
+            {TRANSPORT_OPTIONS.map((option) => {
+              const active = fields.transportTypes.includes(option.value);
+              return (
+                <Pressable
+                  key={option.value}
+                  style={[styles.optionChip, active && styles.optionChipActive]}
+                  onPress={() => toggleTransportType(option.value)}
+                >
+                  <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>{option.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         <Pressable
           style={[travelStyles.primaryButton, isSubmitting ? { opacity: 0.6 } : null]}
           onPress={handleSubmit}
@@ -482,7 +573,7 @@ export default function PlanCreateScreen() {
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={travelStyles.primaryButtonText}>プランを保存して詳細を見る</Text>
+            <Text style={travelStyles.primaryButtonText}>同行者を選ぶ</Text>
           )}
         </Pressable>
       </View>
@@ -554,6 +645,18 @@ const styles = StyleSheet.create({
   fieldBlock: {
     marginBottom: 18,
   },
+  requiredLegend: {
+    alignSelf: 'flex-end',
+    marginBottom: 12,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 2,
+  },
   headingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -564,6 +667,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#DC2626',
+  },
+  optionWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  optionChip: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  optionChipActive: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FDBA74',
+  },
+  optionChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  optionChipTextActive: {
+    color: '#EA580C',
   },
   currentLocationButton: {
     minWidth: 112,
@@ -576,11 +705,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '700',
   },
+  requiredMark: {
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+    marginTop: -1,
+  },
   currentLocationButtonDisabled: {
     opacity: 0.7,
   },
   currentLocationButtonText: {
-    color: '#F97316',
+    color: '#0F172A',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -666,55 +802,6 @@ const styles = StyleSheet.create({
   budgetSection: {
     marginTop: 0,
     gap: 0,
-  },
-  budgetHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  budgetValueLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  budgetRangeLabel: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  budgetHintText: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  budgetSliderWrap: {
-    height: 32,
-    justifyContent: 'center',
-  },
-  budgetSliderTrack: {
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: '#E2E8F0',
-  },
-  budgetSliderFill: {
-    position: 'absolute',
-    left: 0,
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: '#F97316',
-  },
-  budgetSliderThumb: {
-    position: 'absolute',
-    left: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 3,
-    borderColor: '#F97316',
-    shadowColor: '#F97316',
-    shadowOpacity: 0.16,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
   },
   destinationSuggestionWrap: {
     flexDirection: 'row',

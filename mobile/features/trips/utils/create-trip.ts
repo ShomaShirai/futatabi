@@ -1,4 +1,4 @@
-import { type CreateTripRequest } from '@/features/trips/types/create-trip';
+import { type CreateTripRequest, type TripAtmosphere } from '@/features/trips/types/create-trip';
 
 export type CreateTripFormValues = {
   origin: string;
@@ -7,6 +7,9 @@ export type CreateTripFormValues = {
   endDate: string;
   participantCount: string;
   budget: string;
+  atmosphere: string;
+  recommendationCategories: string[];
+  transportTypes: string[];
 };
 
 export type CreateTripValidationResult =
@@ -30,6 +33,9 @@ export function validateAndBuildCreateTripPayload(
   const endDate = values.endDate.trim();
   const participantCountText = values.participantCount.trim();
   const budgetText = values.budget.trim();
+  const atmosphere = values.atmosphere.trim();
+  const recommendationCategories = values.recommendationCategories;
+  const transportTypes = values.transportTypes;
 
   if (!origin || !destination || !startDate || !endDate) {
     return {
@@ -76,23 +82,26 @@ export function validateAndBuildCreateTripPayload(
     };
   }
 
-  let budget: number | undefined;
-  if (budgetText) {
-    const parsedBudgetPerPerson = Number(budgetText);
-    if (!Number.isInteger(parsedBudgetPerPerson) || parsedBudgetPerPerson <= 0) {
-      return {
-        ok: false,
-        message: '予算は1人あたりの正の整数で入力してください。',
-      };
-    }
-    if (parsedBudgetPerPerson > 100000) {
-      return {
-        ok: false,
-        message: '予算は1人あたり10万円以下で入力してください。',
-      };
-    }
-    budget = parsedBudgetPerPerson * participantCount;
+  if (!budgetText) {
+    return {
+      ok: false,
+      message: '予算は必須です。',
+    };
   }
+  const parsedBudgetPerPerson = Number(budgetText);
+  if (!Number.isInteger(parsedBudgetPerPerson) || parsedBudgetPerPerson <= 0) {
+    return {
+      ok: false,
+      message: '予算は1人あたりの正の整数で入力してください。',
+    };
+  }
+  if (parsedBudgetPerPerson > 100000) {
+    return {
+      ok: false,
+      message: '予算は1人あたり10万円以下で入力してください。',
+    };
+  }
+  const budget = parsedBudgetPerPerson * participantCount;
 
   return {
     ok: true,
@@ -102,13 +111,13 @@ export function validateAndBuildCreateTripPayload(
       start_date: startDate,
       end_date: endDate,
       participant_count: participantCount,
+      recommendation_categories: recommendationCategories,
       status: 'planned',
-      preference: budget
-        ? {
-            atmosphere: 'のんびり',
-            budget,
-          }
-        : undefined,
+      preference: {
+        atmosphere: atmosphere as TripAtmosphere,
+        budget,
+        transport_type: transportTypes.join(','),
+      },
     },
   };
 }
