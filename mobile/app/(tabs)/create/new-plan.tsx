@@ -125,6 +125,12 @@ export default function PlanCreateScreen() {
     recommendationCategories: [],
     transportTypes: [],
   });
+  const headerBackSlot = (
+    <Pressable style={styles.headerBackButton} onPress={() => router.replace('/create')}>
+      <MaterialIcons name="arrow-back" size={16} color="#EC5B13" />
+      <Text style={styles.headerBackButtonText}>戻る</Text>
+    </Pressable>
+  );
 
   const updateField = (key: (typeof formItems)[number]['key'], value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -334,7 +340,11 @@ export default function PlanCreateScreen() {
 
   return (
     <ScrollView style={travelStyles.screen} contentContainerStyle={{ paddingBottom: 24 }}>
-      <AppHeader title="基本情報の入力" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader
+        title="基本情報の入力"
+        weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
+        leftSlot={headerBackSlot}
+      />
 
       <View style={travelStyles.container}>
         <Text style={styles.requiredLegend}>※必須</Text>
@@ -615,6 +625,23 @@ export default function PlanCreateScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerBackButton: {
+    minHeight: 32,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    backgroundColor: '#FFF7ED',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  headerBackButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EC5B13',
+  },
   fieldBlock: {
     marginBottom: 18,
   },
