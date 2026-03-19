@@ -23,7 +23,12 @@ type RecommendPlanListItemResponse = {
   categories: string[];
 };
 
-export async function getRecommendPlans(): Promise<RecommendPlanListItem[]> {
+type RecommendPlanListItemWithDates = RecommendPlanListItem & {
+  startDate: string;
+  endDate: string;
+};
+
+export async function getRecommendPlans(): Promise<RecommendPlanListItemWithDates[]> {
   const plans = await apiFetch<RecommendPlanListItemResponse[]>(endpoints.recommendations.list);
   return plans.map((plan) => ({
     id: String(plan.id),
