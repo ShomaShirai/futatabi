@@ -123,7 +123,6 @@ export default function RecommendationListScreen() {
   const [endDateFilter, setEndDateFilter] = useState('');
   const [sortOrder, setSortOrder] = useState<RecommendSortOrder>('newest');
   const [activePicker, setActivePicker] = useState<PickerType>(null);
-  const [draftPeople, setDraftPeople] = useState(1);
 
   const loadRecommendations = useCallback(async () => {
     try {
@@ -145,9 +144,8 @@ export default function RecommendationListScreen() {
   );
 
   const openPeoplePicker = useCallback(() => {
-    setDraftPeople(peopleFilter ?? 1);
     setActivePicker('people');
-  }, [peopleFilter]);
+  }, []);
 
   const applyDateFilter = useCallback((type: 'start' | 'end', date: Date) => {
     const formatted = formatDateInput(date);
@@ -209,13 +207,6 @@ export default function RecommendationListScreen() {
     }
     setActivePicker(null);
   }, [activePicker]);
-
-  const confirmPicker = useCallback(() => {
-    if (activePicker === 'people') {
-      setPeopleFilter(draftPeople);
-    }
-    setActivePicker(null);
-  }, [activePicker, draftPeople]);
 
   const filteredPlans = useMemo(() => {
     const query = keyword.trim().toLowerCase();
@@ -376,9 +367,6 @@ export default function RecommendationListScreen() {
               <>
                 <View style={styles.modalTopSection}>
                   <Text style={styles.modalTitle}>カテゴリを選択</Text>
-                  <Pressable style={styles.modalCloseButton} onPress={closePicker}>
-                    <MaterialIcons name="close" size={22} color="#64748B" />
-                  </Pressable>
                 </View>
                 <View style={styles.categoryPickerSection}>
                   <View style={styles.categoryPickerList}>
@@ -403,15 +391,12 @@ export default function RecommendationListScreen() {
               <>
                 <View style={styles.modalTopSection}>
                   <Text style={styles.modalTitle}>人数を選択</Text>
-                  <Pressable style={styles.modalCloseButton} onPress={closePicker}>
-                    <MaterialIcons name="close" size={22} color="#64748B" />
-                  </Pressable>
                 </View>
                 <View style={styles.modalWheelSection}>
                   <WheelPicker
                     values={PEOPLE_OPTIONS}
-                    selectedValue={draftPeople}
-                    onChange={setDraftPeople}
+                    selectedValue={peopleFilter ?? 1}
+                    onChange={setPeopleFilter}
                     renderLabel={(value) => `${value}名`}
                   />
                 </View>
@@ -420,9 +405,6 @@ export default function RecommendationListScreen() {
               <>
                 <View style={styles.modalTopSection}>
                   <Text style={styles.modalTitle}>{activePicker === 'start' ? '開始日を選択' : '終了日を選択'}</Text>
-                  <Pressable style={styles.modalCloseButton} onPress={closePicker}>
-                    <MaterialIcons name="close" size={22} color="#64748B" />
-                  </Pressable>
                 </View>
                 <View style={styles.calendarSection}>
                   <DateTimePicker
@@ -456,8 +438,8 @@ export default function RecommendationListScreen() {
               <Pressable style={styles.modalSecondaryButton} onPress={resetPicker}>
                 <Text style={styles.modalSecondaryText}>リセット</Text>
               </Pressable>
-              <Pressable style={styles.modalPrimaryButton} onPress={confirmPicker}>
-                <Text style={styles.modalPrimaryButtonText}>決定</Text>
+              <Pressable style={styles.modalCloseBottomButton} onPress={closePicker}>
+                <Text style={styles.modalCloseBottomText}>閉じる</Text>
               </Pressable>
             </View>
           </View>
@@ -693,8 +675,7 @@ const styles = StyleSheet.create({
     height: '64%',
   },
   modalTopSection: {
-    position: 'relative',
-    gap: 12,
+    gap: 24,
   },
   modalTitle: {
     fontSize: 18,
@@ -702,15 +683,6 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     textAlign: 'center',
     paddingTop: 4,
-  },
-  modalCloseButton: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   modalWheelSection: {
     flex: 1,
@@ -807,7 +779,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#475569',
   },
-  modalPrimaryButton: {
+  modalCloseBottomButton: {
     flex: 1,
     height: 48,
     borderRadius: 14,
@@ -815,7 +787,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modalPrimaryButtonText: {
+  modalCloseBottomText: {
     fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
