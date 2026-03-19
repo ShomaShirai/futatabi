@@ -587,14 +587,21 @@ class TripService:
         route_client = RoutesClient()
 
         pair_candidates: list[tuple[PlaceCandidate, PlaceCandidate]] = []
-        seen_pairs: set[tuple[str, str]] = set()
+        seen_pairs: set[tuple[str, float, float, str, float, float]] = set()
         for origin in candidates:
             nearest_destinations = sorted(
                 [destination for destination in candidates if destination.name != origin.name],
                 key=lambda destination: self._estimate_distance_meters(origin, destination),
             )[: self.MAX_NEAREST_DESTINATIONS_PER_CANDIDATE]
             for destination in nearest_destinations:
-                key = (origin.name, destination.name)
+                key = (
+                    origin.name,
+                    origin.latitude,
+                    origin.longitude,
+                    destination.name,
+                    destination.latitude,
+                    destination.longitude,
+                )
                 if key in seen_pairs:
                     continue
                 seen_pairs.add(key)
