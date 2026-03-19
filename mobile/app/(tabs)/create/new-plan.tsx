@@ -121,7 +121,7 @@ export default function PlanCreateScreen() {
     endDate: '',
     participantCount: '1',
     budget: '10000',
-    atmosphere: '',
+    atmosphere: 'RELAXED',
     recommendationCategories: [],
     transportTypes: [],
   });
