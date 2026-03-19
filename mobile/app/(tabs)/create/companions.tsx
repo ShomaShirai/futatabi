@@ -95,18 +95,33 @@ export default function CreateCompanionsScreen() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
       const created = await createTrip(validated.payload);
-      for (const userId of selectedUserIds) {
-        await addTripMember(created.trip.id, userId);
+
+      // 同行者の追加は部分的な失敗を許容し、プラン作成成功とは分けて扱う
+      const memberPromises = Array.from(selectedUserIds).map((userId) =>
+        addTripMember(created.trip.id, userId),
+      );
+
+      const results = await Promise.allSettled(memberPromises);
+      const hasMemberError = results.some((result) => result.status === 'rejected');
+
+      if (hasMemberError) {
+        Alert.alert(
+          'プラン作成完了',
+          'プランは作成されましたが、一部の同行者を追加できませんでした。プラン詳細画面から再度追加をお試しください。',
+        );
+      } else {
+        Alert.alert('保存完了', '新規プランを作成しました。');
       }
-      Alert.alert('保存完了', '新規プランを作成しました。');
+
       router.replace({
         pathname: '/plans/detail',
         params: { id: String(created.trip.id) },
       });
     } catch {
+      // createTrip 自体が失敗した場合のみ「プラン作成に失敗」と表示
       Alert.alert('作成失敗', 'プラン作成に失敗しました。ログイン状態やAPI接続を確認してください。');
     } finally {
       setIsSubmitting(false);
