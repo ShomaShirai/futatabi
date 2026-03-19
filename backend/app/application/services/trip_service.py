@@ -1045,9 +1045,17 @@ class TripService:
             if not current_name or not next_name:
                 continue
             option = self._pick_best_route_option(route_map.get((str(current_name), str(next_name)), []))
-            if option is None:
+            if option is not None:
+                injected.append(self._route_option_to_item_payload(option, item.get("end_time"), next_item.get("start_time")))
                 continue
-            injected.append(self._route_option_to_item_payload(option, item.get("end_time"), next_item.get("start_time")))
+            injected.append(
+                self._build_fallback_transport_item_payload(
+                    from_name=str(current_name),
+                    to_name=str(next_name),
+                    previous_end_time=item.get("end_time"),
+                    next_start_time=next_item.get("start_time"),
+                )
+            )
         return injected
 
     def _pick_best_route_option(self, options: list[RouteOption]) -> Optional[RouteOption]:
@@ -1092,6 +1100,51 @@ class TripService:
             "end_time": end_time,
             "notes": option.summary,
         }
+
+    def _build_fallback_transport_item_payload(
+        self,
+        *,
+        from_name: str,
+        to_name: str,
+        previous_end_time: Optional[str],
+        next_start_time: Optional[str],
+    ) -> dict:
+        travel_minutes = self._infer_fallback_travel_minutes(previous_end_time, next_start_time)
+        start_time, end_time = self._build_transport_time_window(
+            previous_end_time=previous_end_time,
+            next_start_time=next_start_time,
+            travel_minutes=travel_minutes,
+        )
+        summary = f"{from_name} → {to_name}"
+        return {
+            "item_type": "transport",
+            "name": "移動",
+            "category": "transport",
+            "transport_mode": None,
+            "travel_minutes": travel_minutes,
+            "distance_meters": None,
+            "from_name": from_name,
+            "to_name": to_name,
+            "start_time": start_time,
+            "end_time": end_time,
+            "notes": summary,
+        }
+
+    def _infer_fallback_travel_minutes(
+        self,
+        previous_end_time: Optional[str],
+        next_start_time: Optional[str],
+    ) -> int:
+        if previous_end_time and next_start_time:
+            try:
+                start = datetime.strptime(previous_end_time, "%H:%M")
+                end = datetime.strptime(next_start_time, "%H:%M")
+                delta_minutes = int((end - start).total_seconds() // 60)
+                if delta_minutes > 0:
+                    return delta_minutes
+            except ValueError:
+                pass
+        return 30
 
     def _build_transport_time_window(
         self,

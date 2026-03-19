@@ -207,12 +207,14 @@ export function toTimelineItems(items: TripDetailItineraryItemResponse[]): PlanD
 }
 
 function transportModeLabel(mode?: string | null) {
+  if (!mode) return '移動';
   if (mode === 'WALK') return '徒歩で移動';
   if (mode === 'BUS') return 'バスで移動';
   return '電車で移動';
 }
 
 function transportModeIcon(mode?: string | null): keyof typeof MaterialIcons.glyphMap {
+  if (!mode) return 'swap-horiz';
   if (mode === 'WALK') return 'directions-walk';
   if (mode === 'BUS') return 'directions-bus';
   return 'train';
