@@ -80,10 +80,6 @@ export default function CreateCompanionsScreen() {
         next.delete(userId);
         return next;
       }
-      if (next.size >= maxSelectableCompanions) {
-        Alert.alert('選択上限', `共有する同行者は最大${maxSelectableCompanions}人です。`);
-        return prev;
-      }
       next.add(userId);
       return next;
     });
@@ -140,17 +136,11 @@ export default function CreateCompanionsScreen() {
       <AppHeader
         title="同行者の選択"
         weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
-        leftSlot={<BackButton fallbackHref="/create/new-plan" />}
+        leftSlot={<BackButton />}
       />
 
       <View style={travelStyles.container}>
-        <View style={travelStyles.detailSection}>
-          <Text style={travelStyles.heading}>共有する同行者を選択</Text>
-          <Text style={travelStyles.sectionBody}>
-            総人数は {participantCount}人 です。アプリで共有する友達は最大 {maxSelectableCompanions}人 まで選べます。
-          </Text>
-          <Text style={styles.selectedCount}>選択中 {selectedUserIds.size}人</Text>
-        </View>
+        <Text style={styles.sectionTitle}>プランを共有する同行者を選択</Text>
 
         {isLoading ? (
           <View style={styles.loadingWrap}>
@@ -199,11 +189,11 @@ export default function CreateCompanionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  selectedCount: {
-    marginTop: 8,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#F97316',
+  sectionTitle: {
+    marginBottom: 16,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   loadingWrap: {
     paddingVertical: 24,
