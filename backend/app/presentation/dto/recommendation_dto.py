@@ -41,9 +41,11 @@ class RecommendationDetailResponse(BaseModel):
     title: str
     image: str
     username: str
-    date: str
+    created_at: Optional[datetime] = None
+    start_date: str
+    end_date: str
     area: str
-    intro: str
+    comment: str
     budget: str
     move_time: str
     is_saved_by_me: bool

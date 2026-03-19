@@ -381,6 +381,8 @@ class TripService:
 
         if run_async and created.id is not None:
             asyncio.create_task(self.run_ai_plan_generation_in_background(created.id))
+        elif created.id is not None:
+            created = await self.execute_ai_plan_generation(created.id)
 
         return created
 

@@ -49,6 +49,7 @@ class TripModel(Base):
     counts_as_saved_recommendation = Column(Boolean, nullable=False, default=False)
     is_public = Column(Boolean, nullable=False, default=False)
     cover_image_url = Column(String(1000), nullable=True)
+    recommendation_comment = Column(Text, nullable=True)
     recommendation_categories = Column(ARRAY(String(100)), nullable=True)
     save_count = Column(Integer, nullable=False, default=0)
     status = Column(String(50), default="planned")
