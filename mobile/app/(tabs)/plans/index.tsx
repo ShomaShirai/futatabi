@@ -349,7 +349,7 @@ export default function PlansListScreen() {
         <View style={styles.cardList}>
           {filteredPlans.map((plan) => (
             <View key={plan.id} style={styles.card}>
-              <Image source={{ uri: PLAN_IMAGE_URL }} style={styles.cardImage} />
+              <Image source={{ uri: plan.coverImageUrl ?? PLAN_IMAGE_URL }} style={styles.cardImage} />
 
               <View style={styles.cardBody}>
                 <View style={styles.cardHeader}>
