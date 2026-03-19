@@ -1,4 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker, {
   DateTimePickerAndroid,
   type DateTimePickerEvent,
@@ -22,10 +23,18 @@ import {
 import { weatherMock } from '@/data/travel';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
+import { createAiPlanGeneration } from '@/features/trips/api/ai-plan-generation';
+import { createTrip } from '@/features/trips/api/create-trip';
+import { addTripMember } from '@/features/trips/api/trip-members';
 import {
   type CreateTripFormValues,
   validateAndBuildCreateTripPayload,
 } from '@/features/trips/utils/create-trip';
+import {
+  clearCreateTripDraft,
+  getCreateTripDraft,
+  setCreateTripDraft,
+} from '@/features/trips/utils/create-trip-draft';
 
 const formItems = [
   {
@@ -107,6 +116,18 @@ function FieldLabel({ label, required = false }: { label: string; required?: boo
   );
 }
 
+function getAiGenerationFailureMessage(errorMessage?: string | null) {
+  if (!errorMessage) {
+    return 'プランは作成されましたが、AIで日程を生成できませんでした。少し時間をおいて再度お試しください。';
+  }
+
+  if (errorMessage.includes('Gemini API error: 429') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
+    return 'プランは作成されましたが、AI生成が混み合っています。少し待ってからもう一度お試しください。';
+  }
+
+  return 'プランは作成されましたが、AIで日程を生成できませんでした。詳細画面から再度お試しください。';
+}
+
 export default function PlanCreateScreen() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -114,19 +135,18 @@ export default function PlanCreateScreen() {
   const isResolvingCurrentLocationRef = useRef(false);
   const [activeDateField, setActiveDateField] = useState<DateFieldKey>('startDate');
   const [isIosDateModalVisible, setIsIosDateModalVisible] = useState(false);
-  const [fields, setFields] = useState<CreateTripFormValues>({
-    origin: '',
-    destination: '',
-    startDate: '',
-    endDate: '',
-    participantCount: '1',
-    budget: '10000',
-    atmosphere: 'RELAXED',
-    recommendationCategories: [],
-    transportTypes: [],
-  });
+  const [fields, setFields] = useState<CreateTripFormValues>(() => getCreateTripDraft().formValues);
+  const [selectedCompanionUserIds, setSelectedCompanionUserIds] = useState<number[]>(
+    () => getCreateTripDraft().selectedCompanionUserIds
+  );
   const headerBackSlot = (
-    <Pressable style={styles.headerBackButton} onPress={() => router.replace('/create')}>
+    <Pressable
+      style={styles.headerBackButton}
+      onPress={() => {
+        clearCreateTripDraft();
+        router.replace('/create');
+      }}
+    >
       <MaterialIcons name="arrow-back" size={16} color="#EC5B13" />
       <Text style={styles.headerBackButtonText}>戻る</Text>
     </Pressable>
@@ -135,6 +155,14 @@ export default function PlanCreateScreen() {
   const updateField = (key: (typeof formItems)[number]['key'], value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      const draft = getCreateTripDraft();
+      setFields(draft.formValues);
+      setSelectedCompanionUserIds(draft.selectedCompanionUserIds);
+    }, [])
+  );
 
   const toggleRecommendationCategory = useCallback((category: string) => {
     setFields((prev) => ({
@@ -317,25 +345,50 @@ export default function PlanCreateScreen() {
     }
   }, [resolveCurrentLocationLabel, updateField]);
 
+  const handleOpenCompanions = () => {
+    setCreateTripDraft({
+      formValues: fields,
+      selectedCompanionUserIds,
+    });
+    router.push('/create/companions');
+  };
+
   const handleSubmit = async () => {
     const result = validateAndBuildCreateTripPayload(fields);
     if (!result.ok) {
       Alert.alert('入力エラー', result.message);
       return;
     }
-    router.push({
-      pathname: '/create/companions',
-      params: {
-        origin: fields.origin,
-        destination: fields.destination,
-        startDate: fields.startDate,
-        endDate: fields.endDate,
-        participantCount: fields.participantCount,
-        budget: fields.budget,
-        atmosphere: fields.atmosphere,
-        recommendationCategories: fields.recommendationCategories.join(','),
-      },
-    });
+
+    setIsSubmitting(true);
+    try {
+      const created = await createTrip(result.payload);
+
+      const memberPromises = selectedCompanionUserIds.map((userId) => addTripMember(created.trip.id, userId));
+      const results = await Promise.allSettled(memberPromises);
+      const hasMemberError = results.some((entry) => entry.status === 'rejected');
+      const aiGeneration = await createAiPlanGeneration(created.trip.id, { run_async: false });
+
+      clearCreateTripDraft();
+
+      if (aiGeneration.status === 'failed') {
+        Alert.alert('プラン作成完了', getAiGenerationFailureMessage(aiGeneration.error_message));
+      } else if (hasMemberError) {
+        Alert.alert(
+          'プラン作成完了',
+          'プランは作成されましたが、一部の同行者を追加できませんでした。プラン詳細画面から再度追加をお試しください。',
+        );
+      }
+
+      router.replace({
+        pathname: '/plans/detail',
+        params: { id: String(created.trip.id) },
+      });
+    } catch {
+      Alert.alert('作成失敗', 'プラン作成に失敗しました。ログイン状態やAPI接続を確認してください。');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -548,6 +601,24 @@ export default function PlanCreateScreen() {
           </View>
         </View>
 
+        <View style={styles.fieldBlock}>
+          <FieldLabel label="同行者" />
+          <Pressable style={styles.companionSelector} onPress={handleOpenCompanions}>
+            <View style={styles.companionSelectorBody}>
+              <MaterialIcons name="group" size={20} color="#F97316" />
+              <View style={styles.companionSelectorTextWrap}>
+                <Text style={styles.companionSelectorTitle}>同行者を選ぶ</Text>
+                <Text style={styles.companionSelectorBodyText}>
+                  {selectedCompanionUserIds.length
+                    ? `${selectedCompanionUserIds.length}人を選択済み`
+                    : '選択しなくても作成できます'}
+                </Text>
+              </View>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color="#94A3B8" />
+          </Pressable>
+        </View>
+
         <Pressable
           style={[travelStyles.primaryButton, isSubmitting ? { opacity: 0.6 } : null]}
           onPress={handleSubmit}
@@ -556,7 +627,7 @@ export default function PlanCreateScreen() {
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={travelStyles.primaryButtonText}>同行者を選ぶ</Text>
+            <Text style={travelStyles.primaryButtonText}>プランを作成する</Text>
           )}
         </Pressable>
       </View>
@@ -719,6 +790,38 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 14,
     fontWeight: '700',
+  },
+  companionSelector: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  companionSelectorBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  companionSelectorTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  companionSelectorTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  companionSelectorBodyText: {
+    fontSize: 12,
+    color: '#64748B',
   },
   scheduleSection: {
     marginTop: 22,
