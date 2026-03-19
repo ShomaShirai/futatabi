@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { BackButton } from '@/components/back-button';
 import { getFriends } from '@/features/friends/api/get-friends';
 import { confirmRecommendTripSave } from '@/features/recommend/api/confirm-recommend-trip-save';
 import { type FriendResponse } from '@/features/friends/types/friend-request';
@@ -259,12 +260,12 @@ export default function RecommendCustomizeScreen() {
 
   return (
     <View style={travelStyles.screen}>
-      <AppHeader title="おすすめをカスタマイズ" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader
+        title="おすすめをカスタマイズ"
+        weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
+        leftSlot={<BackButton onPress={() => void handleBack()} />}
+      />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ ...travelStyles.container, paddingBottom: 24 }}>
-        <Pressable style={travelStyles.pillButton} onPress={() => void handleBack()}>
-          <Text style={travelStyles.pillText}>← 戻る</Text>
-        </Pressable>
-
         {isLoading ? (
           <View style={travelStyles.detailSection}>
             <ActivityIndicator color="#F97316" />

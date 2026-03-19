@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { weatherMock } from '@/data/travel';
+import { BackButton } from '@/components/back-button';
 import { PlanDetailTemplate } from '@/features/plan-detail/components/PlanDetailTemplate';
 import {
   getTripStartErrorMessage,
@@ -35,12 +36,7 @@ export default function PlanDetailScreen() {
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [isStartingTrip, setIsStartingTrip] = useState(false);
   const [activeDayId, setActiveDayId] = useState<number | null>(null);
-  const headerBackSlot = (
-    <Pressable style={styles.headerBackButton} onPress={() => router.push('/plans')}>
-      <MaterialIcons name="arrow-back" size={16} color="#EC5B13" />
-      <Text style={styles.headerBackButtonText}>戻る</Text>
-    </Pressable>
-  );
+  const headerBackSlot = <BackButton onPress={() => router.push('/plans')} size={28} />;
 
   const groupedItineraryByDay = useMemo(() => groupItineraryByDay(aggregate), [aggregate]);
 
@@ -225,23 +221,6 @@ const styles = StyleSheet.create({
   centerBody: {
     fontSize: 14,
     color: '#64748B',
-  },
-  headerBackButton: {
-    minHeight: 32,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    backgroundColor: '#FFF7ED',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  headerBackButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#EC5B13',
   },
   actionWrap: {
     width: '100%',

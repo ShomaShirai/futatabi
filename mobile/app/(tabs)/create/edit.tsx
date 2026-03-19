@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { BackButton } from '@/components/back-button';
 import { weatherMock } from '@/data/travel';
 import { getFriends } from '@/features/friends/api/get-friends';
 import { type FriendResponse } from '@/features/friends/types/friend-request';
@@ -58,8 +59,7 @@ export default function TripEditScreen() {
   const { tripId: rawTripId } = useLocalSearchParams<EditParams>();
   const tripId = useMemo(() => parseTripId(rawTripId), [rawTripId]);
   const headerBackSlot = (
-    <Pressable
-      style={styles.headerBackButton}
+    <BackButton
       onPress={() => {
         if (!tripId) {
           router.push('/plans');
@@ -70,10 +70,7 @@ export default function TripEditScreen() {
           params: { id: String(tripId) },
         });
       }}
-    >
-      <MaterialIcons name="arrow-back" size={16} color="#EC5B13" />
-      <Text style={styles.headerBackButtonText}>戻る</Text>
-    </Pressable>
+    />
   );
 
   const [isLoading, setIsLoading] = useState(true);
@@ -413,21 +410,4 @@ export default function TripEditScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerBackButton: {
-    minHeight: 32,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    backgroundColor: '#FFF7ED',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  headerBackButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#EC5B13',
-  },
 });

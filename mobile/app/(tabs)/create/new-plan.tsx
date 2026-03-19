@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { weatherMock } from '@/data/travel';
+import { BackButton } from '@/components/back-button';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
 import {
@@ -82,16 +83,12 @@ export default function PlanCreateScreen() {
     () => getCreateTripDraft().selectedCompanionUserIds
   );
   const headerBackSlot = (
-    <Pressable
-      style={styles.headerBackButton}
+    <BackButton
       onPress={() => {
         clearCreateTripDraft();
         router.replace('/create');
       }}
-    >
-      <MaterialIcons name="arrow-back" size={16} color="#EC5B13" />
-      <Text style={styles.headerBackButtonText}>戻る</Text>
-    </Pressable>
+    />
   );
 
   const updateField = (key: EditableFieldKey, value: string) => {
@@ -394,23 +391,6 @@ export default function PlanCreateScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerBackButton: {
-    minHeight: 32,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    backgroundColor: '#FFF7ED',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  headerBackButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#EC5B13',
-  },
   fieldBlock: {
     marginBottom: 18,
   },
