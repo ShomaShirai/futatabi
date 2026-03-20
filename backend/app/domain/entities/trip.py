@@ -82,6 +82,10 @@ class ItineraryItem:
     end_time: Optional[datetime] = None
     estimated_cost: Optional[int] = None
     notes: Optional[str] = None
+    line_name: Optional[str] = None
+    vehicle_type: Optional[str] = None
+    departure_stop_name: Optional[str] = None
+    arrival_stop_name: Optional[str] = None
     created_at: Optional[datetime] = None
 
 

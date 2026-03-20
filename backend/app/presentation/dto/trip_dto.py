@@ -99,6 +99,10 @@ class ItineraryItemCreate(BaseModel):
     end_time: Optional[datetime] = None
     estimated_cost: Optional[int] = None
     notes: Optional[str] = None
+    line_name: Optional[str] = None
+    vehicle_type: Optional[str] = None
+    departure_stop_name: Optional[str] = None
+    arrival_stop_name: Optional[str] = None
 
     @root_validator(skip_on_failure=True)
     def validate_transport_fields(cls, values: dict) -> dict:
@@ -141,6 +145,10 @@ class ItineraryItemUpdate(BaseModel):
     end_time: Optional[datetime] = None
     estimated_cost: Optional[int] = None
     notes: Optional[str] = None
+    line_name: Optional[str] = None
+    vehicle_type: Optional[str] = None
+    departure_stop_name: Optional[str] = None
+    arrival_stop_name: Optional[str] = None
 
     @root_validator(skip_on_failure=True)
     def validate_transport_fields_on_update(cls, values: dict) -> dict:
@@ -324,6 +332,10 @@ class ItineraryItemResponse(BaseModel):
     end_time: Optional[datetime] = None
     estimated_cost: Optional[int] = None
     notes: Optional[str] = None
+    line_name: Optional[str] = None
+    vehicle_type: Optional[str] = None
+    departure_stop_name: Optional[str] = None
+    arrival_stop_name: Optional[str] = None
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

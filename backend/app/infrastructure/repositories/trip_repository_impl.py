@@ -384,6 +384,10 @@ class TripRepositoryImpl(TripRepository):
             end_time=item.end_time,
             estimated_cost=item.estimated_cost,
             notes=item.notes,
+            line_name=item.line_name,
+            vehicle_type=item.vehicle_type,
+            departure_stop_name=item.departure_stop_name,
+            arrival_stop_name=item.arrival_stop_name,
         )
         self.db.add(db_item)
         await self.db.commit()
@@ -418,6 +422,10 @@ class TripRepositoryImpl(TripRepository):
         db_item.end_time = item.end_time
         db_item.estimated_cost = item.estimated_cost
         db_item.notes = item.notes
+        db_item.line_name = item.line_name
+        db_item.vehicle_type = item.vehicle_type
+        db_item.departure_stop_name = item.departure_stop_name
+        db_item.arrival_stop_name = item.arrival_stop_name
 
         await self.db.commit()
         await self.db.refresh(db_item)
@@ -540,6 +548,10 @@ class TripRepositoryImpl(TripRepository):
                     end_time=item.end_time,
                     estimated_cost=item.estimated_cost,
                     notes=item.notes,
+                    line_name=item.line_name,
+                    vehicle_type=item.vehicle_type,
+                    departure_stop_name=item.departure_stop_name,
+                    arrival_stop_name=item.arrival_stop_name,
                 )
             )
         await self.db.commit()
@@ -701,6 +713,10 @@ class TripRepositoryImpl(TripRepository):
             end_time=db_item.end_time,
             estimated_cost=db_item.estimated_cost,
             notes=db_item.notes,
+            line_name=db_item.line_name,
+            vehicle_type=db_item.vehicle_type,
+            departure_stop_name=db_item.departure_stop_name,
+            arrival_stop_name=db_item.arrival_stop_name,
             created_at=db_item.created_at,
         )
 

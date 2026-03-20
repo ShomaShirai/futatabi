@@ -182,6 +182,10 @@ class ItineraryItemModel(Base):
     end_time = Column(DateTime)
     estimated_cost = Column(Integer)
     notes = Column(Text)
+    line_name = Column(String(255))
+    vehicle_type = Column(String(255))
+    departure_stop_name = Column(String(255))
+    arrival_stop_name = Column(String(255))
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     

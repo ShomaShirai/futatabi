@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -18,7 +19,7 @@ from app.domain.entities.trip import (
     TripPreference,
 )
 from app.domain.repositories.trip_repository import TripRepository
-from app.infrastructure.external import GeminiClient, GooglePlacesClient, PlaceCandidate, RouteOption, RoutesClient
+from app.infrastructure.external import GeminiClient, GooglePlacesClient, PlaceCandidate, RouteOption, RouteStep, RoutesClient
 from app.shared.exceptions import (
     AiPlanGenerationNotFoundError,
     IncidentNotFoundError,
@@ -28,6 +29,8 @@ from app.shared.exceptions import (
     TripDayNotFoundError,
     TripNotFoundError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class TripService:
@@ -462,6 +465,12 @@ class TripService:
                 fallback_candidates=place_candidates,
                 route_options=route_options,
             )
+            normalized = await self._rebuild_transport_items_from_routes(
+                trip=aggregate.trip,
+                days=days,
+                normalized_plan=normalized,
+                place_candidates=place_candidates,
+            )
             generated_items = self._build_generated_itinerary_items(days=days, normalized_plan=normalized)
             inserted_count = await self.trip_repository.replace_items_by_trip(aggregate.trip.id, generated_items)
             cover_image_updated = await self._update_trip_cover_image_from_itinerary(
@@ -836,6 +845,10 @@ class TripService:
                     end_time=self._build_datetime(day.date, raw.get("end_time")),
                     estimated_cost=self._to_optional_int(raw.get("estimated_cost")),
                     notes=raw.get("notes"),
+                    line_name=raw.get("line_name"),
+                    vehicle_type=raw.get("vehicle_type"),
+                    departure_stop_name=raw.get("departure_stop_name"),
+                    arrival_stop_name=raw.get("arrival_stop_name"),
                 )
                 if not generated_item.name:
                     continue
@@ -1081,11 +1094,16 @@ class TripService:
         previous_end_time: Optional[str],
         next_start_time: Optional[str],
     ) -> dict:
-        start_time, end_time = self._build_transport_time_window(
-            previous_end_time=previous_end_time,
-            next_start_time=next_start_time,
-            travel_minutes=option.duration_minutes,
-        )
+        scheduled_start_time = self._to_hhmm(option.departure_time)
+        scheduled_end_time = self._to_hhmm(option.arrival_time)
+        if scheduled_start_time and scheduled_end_time:
+            start_time, end_time = scheduled_start_time, scheduled_end_time
+        else:
+            start_time, end_time = self._build_transport_time_window(
+                previous_end_time=previous_end_time,
+                next_start_time=next_start_time,
+                travel_minutes=option.duration_minutes,
+            )
         mode_label = "徒歩" if option.travel_mode == "WALK" else "バス" if option.transit_subtype == "BUS" else "電車"
         return {
             "item_type": "transport",
@@ -1098,7 +1116,11 @@ class TripService:
             "to_name": option.to_name,
             "start_time": start_time,
             "end_time": end_time,
-            "notes": option.summary,
+            "notes": self._build_transport_notes(option),
+            "line_name": option.line_name,
+            "vehicle_type": option.vehicle_type,
+            "departure_stop_name": option.from_name if option.transit_subtype else None,
+            "arrival_stop_name": option.to_name if option.transit_subtype else None,
         }
 
     def _build_fallback_transport_item_payload(
@@ -1128,6 +1150,10 @@ class TripService:
             "start_time": start_time,
             "end_time": end_time,
             "notes": summary,
+            "line_name": None,
+            "vehicle_type": None,
+            "departure_stop_name": None,
+            "arrival_stop_name": None,
         }
 
     def _infer_fallback_travel_minutes(
@@ -1162,6 +1188,208 @@ class TripService:
             start = self._shift_hhmm(next_start_time, -travel_minutes)
             return start, next_start_time
         return None, None
+
+    def _build_transport_notes(self, option: RouteOption) -> Optional[str]:
+        parts: list[str] = []
+        if option.summary:
+            parts.append(option.summary)
+        if option.line_name:
+            parts.append(f"路線: {option.line_name}")
+        departure = self._to_hhmm(option.departure_time)
+        arrival = self._to_hhmm(option.arrival_time)
+        if departure and arrival:
+            parts.append(f"予定 {departure}発 - {arrival}着")
+        elif departure:
+            parts.append(f"予定 {departure}発")
+        elif arrival:
+            parts.append(f"予定 {arrival}着")
+        return " / ".join(parts) if parts else None
+
+    async def _rebuild_transport_items_from_routes(
+        self,
+        trip: Trip,
+        days: list[TripDay],
+        normalized_plan: dict[int, list[dict]],
+        place_candidates: list[PlaceCandidate],
+    ) -> dict[int, list[dict]]:
+        candidate_map = {candidate.name: candidate for candidate in place_candidates}
+        rebuilt: dict[int, list[dict]] = {}
+        route_client = RoutesClient()
+
+        for day in days:
+            items = normalized_plan.get(day.day_number, [])
+            place_items = [item for item in items if not self._is_transport_item_payload(item)]
+            if len(place_items) < 2:
+                rebuilt[day.day_number] = place_items
+                continue
+
+            expanded: list[dict] = []
+            for index, item in enumerate(place_items):
+                expanded.append(item)
+                if index == len(place_items) - 1:
+                    continue
+
+                next_item = place_items[index + 1]
+                origin = self._place_candidate_from_item(item, candidate_map)
+                destination = self._place_candidate_from_item(next_item, candidate_map)
+                if origin is None or destination is None:
+                    expanded.append(
+                        self._build_fallback_transport_item_payload(
+                            from_name=str(item.get("name")),
+                            to_name=str(next_item.get("name")),
+                            previous_end_time=item.get("end_time"),
+                            next_start_time=next_item.get("start_time"),
+                        )
+                    )
+                    continue
+
+                departure_time = self._resolve_route_departure_datetime(
+                    trip_date=day.date or trip.start_date,
+                    previous_end_time=item.get("end_time"),
+                )
+                route_steps = await route_client.compute_route_steps(
+                    origin=origin,
+                    destination=destination,
+                    departure_time=departure_time,
+                )
+                if route_steps:
+                    logger.info(
+                        "TripService route steps found: trip_id=%s day=%s from=%s to=%s steps=%s lines=%s",
+                        trip.id,
+                        day.day_number,
+                        item.get("name"),
+                        next_item.get("name"),
+                        len(route_steps),
+                        [step.line_name for step in route_steps if step.line_name],
+                    )
+                    expanded.extend(
+                        self._route_steps_to_item_payloads(
+                            route_steps,
+                            previous_end_time=item.get("end_time"),
+                            next_start_time=next_item.get("start_time"),
+                            origin_name=str(item.get("name")),
+                            destination_name=str(next_item.get("name")),
+                        )
+                    )
+                else:
+                    logger.warning(
+                        "TripService route steps missing, using fallback transport: trip_id=%s day=%s from=%s to=%s",
+                        trip.id,
+                        day.day_number,
+                        item.get("name"),
+                        next_item.get("name"),
+                    )
+                    expanded.append(
+                        self._build_fallback_transport_item_payload(
+                            from_name=str(item.get("name")),
+                            to_name=str(next_item.get("name")),
+                            previous_end_time=item.get("end_time"),
+                            next_start_time=next_item.get("start_time"),
+                        )
+                    )
+            rebuilt[day.day_number] = expanded
+        return rebuilt
+
+    def _place_candidate_from_item(
+        self,
+        item: dict,
+        candidate_map: dict[str, PlaceCandidate],
+    ) -> Optional[PlaceCandidate]:
+        name = item.get("name")
+        if not isinstance(name, str) or not name:
+            return None
+        latitude = item.get("latitude")
+        longitude = item.get("longitude")
+        if isinstance(latitude, (int, float)) and isinstance(longitude, (int, float)):
+            return PlaceCandidate(
+                name=name,
+                category=item.get("category"),
+                address=item.get("notes"),
+                latitude=float(latitude),
+                longitude=float(longitude),
+            )
+        return candidate_map.get(name)
+
+    def _resolve_route_departure_datetime(
+        self,
+        trip_date: date,
+        previous_end_time: Optional[str],
+    ) -> datetime:
+        if previous_end_time:
+            try:
+                parsed = datetime.strptime(previous_end_time, "%H:%M")
+                return datetime.combine(
+                    trip_date,
+                    time(parsed.hour, parsed.minute),
+                    tzinfo=ZoneInfo("Asia/Tokyo"),
+                ).astimezone(timezone.utc)
+            except ValueError:
+                pass
+        return datetime.combine(trip_date, time(9, 0), tzinfo=ZoneInfo("Asia/Tokyo")).astimezone(timezone.utc)
+
+    def _route_steps_to_item_payloads(
+        self,
+        route_steps: list[RouteStep],
+        previous_end_time: Optional[str],
+        next_start_time: Optional[str],
+        origin_name: str,
+        destination_name: str,
+    ) -> list[dict]:
+        payloads: list[dict] = []
+        cursor = previous_end_time
+        for index, step in enumerate(route_steps):
+            start_time = self._to_hhmm(step.departure_time)
+            end_time = self._to_hhmm(step.arrival_time)
+            if not (start_time and end_time):
+                fallback_next = next_start_time if index == len(route_steps) - 1 else None
+                start_time, end_time = self._build_transport_time_window(
+                    previous_end_time=cursor,
+                    next_start_time=fallback_next,
+                    travel_minutes=step.duration_minutes,
+                )
+            if end_time:
+                cursor = end_time
+            payloads.append(self._route_step_to_item_payload(step, start_time, end_time, origin_name, destination_name))
+        logger.info(
+            "TripService route step payloads built: origin=%s destination=%s payloads=%s line_names=%s",
+            origin_name,
+            destination_name,
+            len(payloads),
+            [payload.get("line_name") for payload in payloads if payload.get("line_name")],
+        )
+        return payloads
+
+    def _route_step_to_item_payload(
+        self,
+        step: RouteStep,
+        start_time: Optional[str],
+        end_time: Optional[str],
+        origin_name: str,
+        destination_name: str,
+    ) -> dict:
+        mode_label = "徒歩" if step.travel_mode == "WALK" else "バス" if step.transit_subtype == "BUS" else "電車"
+        return {
+            "item_type": "transport",
+            "name": f"{mode_label}で移動",
+            "category": "transport",
+            "transport_mode": step.travel_mode if step.travel_mode == "WALK" else step.transit_subtype or "TRAIN",
+            "travel_minutes": step.duration_minutes,
+            "distance_meters": step.distance_meters,
+            "from_name": step.from_name or origin_name,
+            "to_name": step.to_name or destination_name,
+            "start_time": start_time,
+            "end_time": end_time,
+            "notes": step.notes,
+            "line_name": step.line_name,
+            "vehicle_type": step.vehicle_type,
+            "departure_stop_name": step.departure_stop_name,
+            "arrival_stop_name": step.arrival_stop_name,
+        }
+
+    def _to_hhmm(self, value: Optional[datetime]) -> Optional[str]:
+        if value is None:
+            return None
+        return value.astimezone(self._jst).strftime("%H:%M")
 
     def _shift_hhmm(self, value: str, delta_minutes: int) -> Optional[str]:
         try:

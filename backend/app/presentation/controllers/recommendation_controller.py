@@ -82,13 +82,19 @@ def _to_timeline_item_response(item: ItineraryItemModel) -> RecommendationTimeli
         end=item.end_time.strftime("%H:%M") if item.end_time else "--:--",
         title=item.name,
         body=(
-            f"{item.from_name} → {item.to_name}"
+            f"{item.departure_stop_name} → {item.arrival_stop_name}"
+            if is_transport and item.departure_stop_name and item.arrival_stop_name
+            else f"{item.from_name} → {item.to_name}"
             if is_transport and item.from_name and item.to_name
             else item.notes or item.category or "詳細メモは未設定です。"
         ),
         item_type=item.item_type or "place",
         meta_label=_format_transport_meta(item.travel_minutes, item.distance_meters) if is_transport else None,
         icon=_timeline_icon_from_transport_mode(item.transport_mode) if is_transport else _timeline_icon_from_category(item.category),
+        line_name=item.line_name,
+        vehicle_type=item.vehicle_type,
+        departure_stop_name=item.departure_stop_name,
+        arrival_stop_name=item.arrival_stop_name,
     )
 
 
@@ -212,6 +218,10 @@ async def clone_recommendation(
                     distance_meters=source_item.distance_meters,
                     from_name=source_item.from_name,
                     to_name=source_item.to_name,
+                    line_name=source_item.line_name,
+                    vehicle_type=source_item.vehicle_type,
+                    departure_stop_name=source_item.departure_stop_name,
+                    arrival_stop_name=source_item.arrival_stop_name,
                     start_time=source_item.start_time,
                     end_time=source_item.end_time,
                     estimated_cost=source_item.estimated_cost,
