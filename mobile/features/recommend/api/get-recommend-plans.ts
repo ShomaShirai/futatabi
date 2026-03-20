@@ -50,7 +50,11 @@ export async function getRecommendPlans(): Promise<RecommendPlanListItem[]> {
       categories: plan.categories,
       image: plan.image,
     }));
-  } catch {
-    return getMockRecommendPlans();
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV !== 'production') {
+      return getMockRecommendPlans();
+    }
+
+    throw error;
   }
 }
