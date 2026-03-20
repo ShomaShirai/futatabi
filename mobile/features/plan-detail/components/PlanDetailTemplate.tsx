@@ -69,6 +69,7 @@ export function PlanDetailTemplate({
   timelineActionLoadingId,
 }: PlanDetailTemplateProps) {
   const [selectedTransportItem, setSelectedTransportItem] = useState<PlanDetailTimelineItem | null>(null);
+  const [selectedPlaceActionItem, setSelectedPlaceActionItem] = useState<PlanDetailTimelineItem | null>(null);
 
   return (
     <View style={styles.screen}>
@@ -161,7 +162,16 @@ export function PlanDetailTemplate({
                             </View>
                             <Text style={styles.timelineCardTitle}>{item.title}</Text>
                           </View>
-                          <MaterialIcons name="more-horiz" size={18} color="#CBD5E1" />
+                          {(timelinePrimaryActionLabel || timelineSecondaryActionLabel) ? (
+                            <Pressable
+                              style={styles.moreButton}
+                              onPress={() => setSelectedPlaceActionItem(item)}
+                            >
+                              <MaterialIcons name="more-horiz" size={18} color="#94A3B8" />
+                            </Pressable>
+                          ) : (
+                            <MaterialIcons name="more-horiz" size={18} color="#CBD5E1" />
+                          )}
                         </View>
 
                         {item.durationLabel ? (
@@ -171,37 +181,6 @@ export function PlanDetailTemplate({
                         ) : null}
 
                         <Text style={styles.timelineCardBody}>{item.body}</Text>
-
-                        {timelinePrimaryActionLabel || timelineSecondaryActionLabel ? (
-                          <View style={styles.timelineActionRow}>
-                            {timelinePrimaryActionLabel ? (
-                              <Pressable
-                                style={[
-                                  styles.timelineActionButton,
-                                  styles.timelineActionButtonLight,
-                                  timelineActionLoadingId === item.id && styles.timelineActionButtonDisabled,
-                                ]}
-                                onPress={() => onTimelinePrimaryAction?.(item)}
-                                disabled={timelineActionLoadingId === item.id}
-                              >
-                                <Text style={styles.timelineActionButtonText}>{timelinePrimaryActionLabel}</Text>
-                              </Pressable>
-                            ) : null}
-                            {timelineSecondaryActionLabel ? (
-                              <Pressable
-                                style={[
-                                  styles.timelineActionButton,
-                                  styles.timelineActionButtonOrange,
-                                  timelineActionLoadingId === item.id && styles.timelineActionButtonDisabled,
-                                ]}
-                                onPress={() => onTimelineSecondaryAction?.(item)}
-                                disabled={timelineActionLoadingId === item.id}
-                              >
-                                <Text style={styles.timelineActionButtonTextOrange}>{timelineSecondaryActionLabel}</Text>
-                              </Pressable>
-                            ) : null}
-                          </View>
-                        ) : null}
                       </View>
                     </View>
                   </View>
@@ -317,6 +296,60 @@ export function PlanDetailTemplate({
                   <Text style={styles.modalDetailSubtext}>到着駅・停留所: {selectedTransportItem.arrivalStopName}</Text>
                 ) : null}
               </View>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={selectedPlaceActionItem !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedPlaceActionItem(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setSelectedPlaceActionItem(null)}>
+          <Pressable style={styles.placeMenuSheet} onPress={() => {}}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.placeMenuTitle}>{selectedPlaceActionItem?.title ?? 'スポット操作'}</Text>
+
+            {timelinePrimaryActionLabel ? (
+              <Pressable
+                style={[
+                  styles.placeMenuButton,
+                  styles.placeMenuButtonLight,
+                  timelineActionLoadingId === selectedPlaceActionItem?.id && styles.timelineActionButtonDisabled,
+                ]}
+                onPress={() => {
+                  if (!selectedPlaceActionItem) {
+                    return;
+                  }
+                  setSelectedPlaceActionItem(null);
+                  onTimelinePrimaryAction?.(selectedPlaceActionItem);
+                }}
+                disabled={timelineActionLoadingId === selectedPlaceActionItem?.id}
+              >
+                <Text style={styles.timelineActionButtonText}>{timelinePrimaryActionLabel}</Text>
+              </Pressable>
+            ) : null}
+
+            {timelineSecondaryActionLabel ? (
+              <Pressable
+                style={[
+                  styles.placeMenuButton,
+                  styles.placeMenuButtonOrange,
+                  timelineActionLoadingId === selectedPlaceActionItem?.id && styles.timelineActionButtonDisabled,
+                ]}
+                onPress={() => {
+                  if (!selectedPlaceActionItem) {
+                    return;
+                  }
+                  setSelectedPlaceActionItem(null);
+                  onTimelineSecondaryAction?.(selectedPlaceActionItem);
+                }}
+                disabled={timelineActionLoadingId === selectedPlaceActionItem?.id}
+              >
+                <Text style={styles.timelineActionButtonTextOrange}>{timelineSecondaryActionLabel}</Text>
+              </Pressable>
             ) : null}
           </Pressable>
         </Pressable>
@@ -540,6 +573,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
+  moreButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+  },
   durationBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
@@ -560,27 +601,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#475569',
   },
-  timelineActionRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 14,
-  },
-  timelineActionButton: {
-    flex: 1,
-    minHeight: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  timelineActionButtonLight: {
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FDBA74',
-  },
-  timelineActionButtonOrange: {
-    backgroundColor: '#EC5B13',
-  },
   timelineActionButtonDisabled: {
     opacity: 0.6,
   },
@@ -593,6 +613,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  placeMenuSheet: {
+    width: '100%',
+    marginTop: 'auto',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 28,
+    gap: 12,
+  },
+  placeMenuTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  placeMenuButton: {
+    minHeight: 46,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  placeMenuButtonLight: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+  },
+  placeMenuButtonOrange: {
+    backgroundColor: '#EC5B13',
   },
   transportRow: {
     flexDirection: 'row',
