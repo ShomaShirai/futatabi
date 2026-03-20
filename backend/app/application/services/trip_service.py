@@ -589,7 +589,11 @@ class TripService:
         normalized_additional_comment = (additional_request_comment or "").strip() or None
         normalized_incident_type = (incident_type or "").strip() or None
         normalized_incident_note = (incident_note or "").strip() or None
-        normalized_delay_minutes = int(delay_minutes) if isinstance(delay_minutes, int) and delay_minutes > 0 else None
+        normalized_delay_minutes = (
+            int(delay_minutes)
+            if isinstance(delay_minutes, int) and not isinstance(delay_minutes, bool) and delay_minutes > 0
+            else None
+        )
         normalized_adjustment_policies = _normalize_generation_text_items(adjustment_policies)
         self._validate_location_like_text(aggregate.trip.origin, "出発地")
         self._validate_location_like_text(aggregate.trip.destination, "目的地")
