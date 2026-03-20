@@ -49,6 +49,18 @@ export default function PlanDetailScreen() {
     () => (aggregate ? toPlanDetailViewModel(aggregate, activeDayId) : null),
     [activeDayId, aggregate]
   );
+  const regenerationMessage = useMemo(() => {
+    if (activeRegenerationKey === 'full') {
+      return '旅程全体を再生成しています。しばらくお待ちください。';
+    }
+    if (activeRegenerationKey?.startsWith('from_item:')) {
+      return '選択したスポット以降の旅程を再生成しています。しばらくお待ちください。';
+    }
+    if (activeRegenerationKey?.startsWith('replace_item:')) {
+      return '選択したスポットを差し替えています。しばらくお待ちください。';
+    }
+    return null;
+  }, [activeRegenerationKey]);
 
   const loadTripDetail = useCallback(async () => {
     if (!tripId) {
@@ -213,6 +225,7 @@ export default function PlanDetailScreen() {
     <PlanDetailTemplate
       headerTitle="マイプラン詳細"
       weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
+      topNoticeMessage={regenerationMessage}
       headerLeftSlot={headerBackSlot}
       heroImage={detailView.heroImage ?? PLAN_IMAGE_URL}
       title={detailView.title}

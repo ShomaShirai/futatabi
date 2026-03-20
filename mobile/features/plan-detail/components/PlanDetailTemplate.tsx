@@ -8,6 +8,7 @@ import { type PlanDetailDay, type PlanDetailTimelineItem } from '@/features/plan
 type PlanDetailTemplateProps = {
   headerTitle: string;
   weatherLabel: string;
+  topNoticeMessage?: string | null;
   headerLeftSlot?: ReactNode;
   headerRightSlot?: ReactNode;
   heroImage: string;
@@ -40,6 +41,7 @@ type PlanDetailTemplateProps = {
 export function PlanDetailTemplate({
   headerTitle,
   weatherLabel,
+  topNoticeMessage,
   headerLeftSlot,
   headerRightSlot,
   heroImage,
@@ -74,6 +76,13 @@ export function PlanDetailTemplate({
   return (
     <View style={styles.screen}>
       <AppHeader title={headerTitle} weatherLabel={weatherLabel} leftSlot={headerLeftSlot} rightSlot={headerRightSlot} />
+
+      {topNoticeMessage ? (
+        <View style={styles.topNoticeWrap}>
+          <MaterialIcons name="autorenew" size={16} color="#C2410C" />
+          <Text style={styles.topNoticeText}>{topNoticeMessage}</Text>
+        </View>
+      ) : null}
 
       <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.heroWrap}>
@@ -362,6 +371,25 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#FDFDFD',
+  },
+  topNoticeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  topNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#C2410C',
   },
   contentContainer: {
     paddingBottom: 28,
