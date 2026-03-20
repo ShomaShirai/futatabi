@@ -12,6 +12,7 @@ from app.infrastructure.database.models import (
     TripPreferenceModel,
     UserModel,
 )
+from app.application.services.trip_service import build_trip_recommendation_comment
 from app.presentation.dependencies.auth import get_current_user
 from app.presentation.dto.recommendation_dto import (
     RecommendationCloneRequest,
@@ -361,10 +362,10 @@ async def get_recommendation_detail(
         area=trip.destination,
         comment=(
             trip.recommendation_comment
-            or (
-                f"{trip.destination}を中心に回る公開プランです。"
-                if preference is None
-                else f"{preference.atmosphere.value}な雰囲気で回る公開プランです。"
+            or build_trip_recommendation_comment(
+                destination=trip.destination,
+                preference=preference,
+                recommendation_categories=trip.recommendation_categories or [],
             )
         ),
         budget=(

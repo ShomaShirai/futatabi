@@ -33,6 +33,59 @@ from app.shared.exceptions import (
 logger = logging.getLogger(__name__)
 
 
+def build_trip_recommendation_comment(
+    destination: str,
+    preference: Optional[TripPreference],
+    recommendation_categories: list[str],
+) -> str:
+    target = _comment_target_phrase(destination, preference.companions if preference is not None else None)
+    vibe = _comment_vibe_phrase(preference.atmosphere.value if preference is not None else None)
+    category_hint = _comment_category_phrase(recommendation_categories)
+    if category_hint:
+        return f"{target} {vibe}、{category_hint}プランです。"
+    return f"{target} {vibe}体験型プランです。"
+
+
+def _comment_target_phrase(destination: str, companions: Optional[str]) -> str:
+    normalized = (companions or "").strip().lower()
+    if normalized == "couple":
+        return "デートにおすすめ！"
+    if normalized == "friends":
+        return "友達同士におすすめ！"
+    if normalized == "family":
+        return "家族旅行におすすめ！"
+    if normalized == "solo":
+        return "ひとり旅におすすめ！"
+    if destination:
+        return f"{destination}観光におすすめ！"
+    return "気軽なおでかけにおすすめ！"
+
+
+def _comment_vibe_phrase(atmosphere: Optional[str]) -> str:
+    if atmosphere == "のんびり":
+        return "のんびり楽しめる"
+    if atmosphere == "アクティブ":
+        return "アクティブに回れる"
+    if atmosphere == "映え":
+        return "写真映えを楽しめる"
+    if atmosphere == "グルメ":
+        return "グルメを満喫できる"
+    return "気軽に楽しめる"
+
+
+def _comment_category_phrase(recommendation_categories: list[str]) -> Optional[str]:
+    categories = recommendation_categories or []
+    if "夜景" in categories:
+        return "夜まで楽しめる"
+    if "グルメ" in categories:
+        return "食べ歩きも楽しめる"
+    if "温泉" in categories:
+        return "癒やしも味わえる"
+    if "カフェ" in categories:
+        return "カフェ巡りを楽しめる"
+    return None
+
+
 class TripService:
     """Trip application service."""
 
@@ -473,6 +526,13 @@ class TripService:
             )
             generated_items = self._build_generated_itinerary_items(days=days, normalized_plan=normalized)
             inserted_count = await self.trip_repository.replace_items_by_trip(aggregate.trip.id, generated_items)
+            if not aggregate.trip.recommendation_comment:
+                aggregate.trip.recommendation_comment = build_trip_recommendation_comment(
+                    destination=aggregate.trip.destination,
+                    preference=aggregate.preference,
+                    recommendation_categories=aggregate.trip.recommendation_categories,
+                )
+                await self.trip_repository.update_trip(aggregate.trip)
             cover_image_updated = await self._update_trip_cover_image_from_itinerary(
                 trip=aggregate.trip,
                 itinerary_items=generated_items,
