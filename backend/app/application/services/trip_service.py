@@ -105,6 +105,16 @@ def _normalize_generation_text_items(values: Optional[list[str]]) -> list[str]:
     return normalized
 
 
+def _normalize_generation_text_items_by_day(values: Optional[list[Optional[str]]]) -> list[Optional[str]]:
+    if not values:
+        return []
+    normalized: list[Optional[str]] = []
+    for value in values:
+        item = (value or "").strip()
+        normalized.append(item or None)
+    return normalized
+
+
 class TripService:
     """Trip application service."""
 
@@ -114,6 +124,9 @@ class TripService:
     MAX_TRIP_DAYS = 3
     MAX_ROUTE_CANDIDATES = 8
     MAX_NEAREST_DESTINATIONS_PER_CANDIDATE = 3
+    ACTIVITY_START_TIME = "09:00"
+    ACTIVITY_END_TIME = "22:00"
+    _SUSPECT_LOCATION_WORDS = {"test", "testing", "aaa", "aaaa", "abcde", "qwerty"}
 
     def __init__(self, trip_repository: TripRepository):
         self.trip_repository = trip_repository
@@ -139,6 +152,8 @@ class TripService:
         ]
         if invalid_categories:
             raise ValueError("recommendation_categories contains invalid values")
+        self._validate_location_like_text(trip.origin, "出発地")
+        self._validate_location_like_text(trip.destination, "目的地")
         trip.user_id = user_id
         return await self.trip_repository.create_trip(trip, preference)
 
@@ -184,6 +199,10 @@ class TripService:
             ]
             if invalid_categories:
                 raise ValueError("recommendation_categories contains invalid values")
+        if "origin" in kwargs and kwargs["origin"] is not None:
+            self._validate_location_like_text(str(kwargs["origin"]), "出発地")
+        if "destination" in kwargs and kwargs["destination"] is not None:
+            self._validate_location_like_text(str(kwargs["destination"]), "目的地")
 
         for key, value in kwargs.items():
             if value is not None and hasattr(trip, key):
@@ -492,8 +511,13 @@ class TripService:
         )
 
         normalized_must_visit_places = _normalize_generation_text_items(must_visit_places)
-        normalized_lodging_notes = _normalize_generation_text_items(lodging_notes)
+        normalized_lodging_notes = _normalize_generation_text_items_by_day(lodging_notes)
         normalized_additional_comment = (additional_request_comment or "").strip() or None
+        self._validate_location_like_text(aggregate.trip.origin, "出発地")
+        self._validate_location_like_text(aggregate.trip.destination, "目的地")
+        for lodging_note in normalized_lodging_notes:
+            if lodging_note:
+                self._validate_location_like_text(lodging_note, "宿泊地")
 
         await self.upsert_my_preference(
             user_id=owner_user_id,
@@ -536,7 +560,7 @@ class TripService:
                 if refreshed_preference is not None and refreshed_preference.must_visit_places_text
                 else []
             ),
-            "lodging_notes": _normalize_generation_text_items([day.lodging_note or "" for day in refreshed_days]),
+            "lodging_notes": [((day.lodging_note or "").strip() or None) for day in refreshed_days],
             "additional_request_comment": (
                 refreshed_preference.additional_request_comment if refreshed_preference is not None else None
             ),
@@ -648,6 +672,12 @@ class TripService:
                 normalized_plan=normalized,
                 place_candidates=place_candidates,
             )
+            normalized = self._enforce_plan_constraints(
+                trip=aggregate.trip,
+                days=days,
+                normalized_plan=normalized,
+            )
+            transit_step_count, transit_line_count = self._count_transit_transport_items(normalized)
             generated_items = self._build_generated_itinerary_items(days=days, normalized_plan=normalized)
             inserted_count = await self.trip_repository.replace_items_by_trip(aggregate.trip.id, generated_items)
             if not aggregate.trip.recommendation_comment:
@@ -671,6 +701,8 @@ class TripService:
                     "days": len(days),
                     "candidates": len(place_candidates),
                     "inserted_items": inserted_count,
+                    "transit_step_items": transit_step_count,
+                    "transit_line_items": transit_line_count,
                     "cover_image_updated": cover_image_updated,
                     "fallback_used": fallback_used,
                     "fallback_reason": fallback_reason,
@@ -825,7 +857,7 @@ class TripService:
             else None
         )
         must_visit_places = _normalize_generation_text_items(generation_input.get("must_visit_places"))
-        lodging_notes = _normalize_generation_text_items(generation_input.get("lodging_notes"))
+        lodging_notes = _normalize_generation_text_items_by_day(generation_input.get("lodging_notes"))
         selected_companion_names = _normalize_generation_text_items(generation_input.get("selected_companion_names"))
         additional_request_comment = (generation_input.get("additional_request_comment") or "").strip() or None
         return (
@@ -844,7 +876,7 @@ class TripService:
             f"recommended_categories={json.dumps(trip.recommendation_categories, ensure_ascii=False)}\n"
             f"selected_transport_types={json.dumps(selected_transport_types, ensure_ascii=False)}\n"
             f"must_visit_places={json.dumps(must_visit_places, ensure_ascii=False)}\n"
-            f"lodging_notes={json.dumps(lodging_notes, ensure_ascii=False)}\n"
+            f"lodging_notes_by_day={json.dumps(lodging_notes, ensure_ascii=False)}\n"
             f"selected_companion_names={json.dumps(selected_companion_names, ensure_ascii=False)}\n"
             f"additional_request_comment={json.dumps(additional_request_comment, ensure_ascii=False)}\n"
             f"candidates={json.dumps(candidates_payload, ensure_ascii=False)}\n"
@@ -855,6 +887,9 @@ class TripService:
             "- place は各日2-5件\n"
             "- place 同士の間には transport を入れる\n"
             "- start_time/end_time は HH:MM\n"
+            f"- place の主要活動時間は {self.ACTIVITY_START_TIME}-{self.ACTIVITY_END_TIME} を原則とする\n"
+            "- 1日目の最初は必ず「出発地から最初の地点への移動」にする\n"
+            "- 最終日の最後は必ず「最終地点から出発地への戻り移動」にする\n"
             "- candidatesにある名称を優先利用\n"
             "- recommended_categories にあるカテゴリは、可能な限り各カテゴリを少なくとも1回は含める\n"
             "- transport は selected_transport_types に対応するものを優先して使う\n"
@@ -863,10 +898,26 @@ class TripService:
             "- transport は route_options にある候補を優先して使う\n"
             "- route_options が不足する場合も、徒歩以外で selected_transport_types に無い手段は使わない\n"
             "- must_visit_places がある場合は、実現可能な範囲で優先して組み込む\n"
-            "- lodging_notes は各日の夜の帰着や宿泊候補として尊重する\n"
+            "- lodging_notes_by_day は day_number 順の配列（null は指定なし）として扱い、各日の夜の帰着や宿泊候補として尊重する\n"
             "- additional_request_comment に書かれた希望や制約を優先する\n"
             "- selected_companion_names は同行者コンテキストとして扱い、二人旅やグループ旅行らしい無理のないプランにする\n"
+            "- 公共交通（電車・バス）を優先し、成立しない場合のみ徒歩や代替手段を使う\n"
+            "- 長距離移動直後に予定を詰め込みすぎない現実的な行程にする\n"
         )
+
+    def _validate_location_like_text(self, value: str, field_label: str) -> None:
+        text = (value or "").strip()
+        if not text:
+            raise ValueError(f"{field_label}を入力してください。")
+        lower_text = text.lower()
+        if lower_text in self._SUSPECT_LOCATION_WORDS:
+            raise ValueError(f"{field_label}の入力を確認してください。")
+        if text.isdigit():
+            raise ValueError(f"{field_label}の入力を確認してください。")
+        if len(set(lower_text)) == 1 and len(lower_text) >= 3:
+            raise ValueError(f"{field_label}の入力を確認してください。")
+        if len(text) < 2 and not any(marker in text for marker in ("駅", "空港", "市", "区", "町", "村", "県", "都", "府")):
+            raise ValueError(f"{field_label}の入力を確認してください。")
 
     def _parse_selected_transport_types(self, raw_value: Optional[str]) -> list[str]:
         if raw_value is None:
@@ -1620,6 +1671,178 @@ class TripService:
             "departure_stop_name": step.departure_stop_name,
             "arrival_stop_name": step.arrival_stop_name,
         }
+
+    def _count_transit_transport_items(self, normalized_plan: dict[int, list[dict]]) -> tuple[int, int]:
+        transit_count = 0
+        line_count = 0
+        for items in normalized_plan.values():
+            for item in items:
+                if item.get("item_type") != "transport":
+                    continue
+                mode = str(item.get("transport_mode") or "").upper()
+                if mode not in {"BUS", "TRAIN"}:
+                    continue
+                transit_count += 1
+                if item.get("line_name"):
+                    line_count += 1
+        return transit_count, line_count
+
+    def _enforce_plan_constraints(
+        self,
+        trip: Trip,
+        days: list[TripDay],
+        normalized_plan: dict[int, list[dict]],
+    ) -> dict[int, list[dict]]:
+        constrained: dict[int, list[dict]] = {}
+        sorted_days = sorted(days, key=lambda day: day.day_number)
+        for day in sorted_days:
+            day_items = list(normalized_plan.get(day.day_number, []))
+            capped_place_count = 0
+            filtered_items: list[dict] = []
+            for item in day_items:
+                if not self._is_transport_item_payload(item):
+                    capped_place_count += 1
+                    if capped_place_count > 5:
+                        continue
+                filtered_items.append(item)
+            day_items = filtered_items
+            day_items = self._clamp_day_place_times(day_items)
+            day_items = self._reduce_overpacked_after_long_transport(day_items)
+            day_items = self._drop_leading_and_trailing_transport(day_items)
+            constrained[day.day_number] = day_items
+
+        if not sorted_days:
+            return constrained
+
+        first_day = sorted_days[0]
+        first_items = constrained.get(first_day.day_number, [])
+        first_place = next((item for item in first_items if not self._is_transport_item_payload(item)), None)
+        if first_place is not None:
+            must_add_head = not first_items or not self._is_transport_item_payload(first_items[0])
+            if must_add_head:
+                first_items.insert(
+                    0,
+                    self._build_fallback_transport_item_payload(
+                        from_name=trip.origin,
+                        to_name=str(first_place.get("name") or trip.destination),
+                        previous_end_time=None,
+                        next_start_time=first_place.get("start_time"),
+                    ),
+                )
+            constrained[first_day.day_number] = first_items
+
+        for index, day in enumerate(sorted_days):
+            items = constrained.get(day.day_number, [])
+            if not items:
+                continue
+            day_lodging = (day.lodging_note or "").strip() or None
+            is_last_day = index == len(sorted_days) - 1
+            last_place = next((item for item in reversed(items) if not self._is_transport_item_payload(item)), None)
+            if is_last_day:
+                if last_place is not None:
+                    needs_return = not items or not self._is_transport_item_payload(items[-1])
+                    if needs_return:
+                        items.append(
+                            self._build_fallback_transport_item_payload(
+                                from_name=str(last_place.get("name") or trip.destination),
+                                to_name=trip.origin,
+                                previous_end_time=last_place.get("end_time"),
+                                next_start_time=None,
+                            )
+                        )
+            elif day_lodging and last_place is not None:
+                needs_lodging_return = not items or not self._is_transport_item_payload(items[-1])
+                if needs_lodging_return:
+                    items.append(
+                        self._build_fallback_transport_item_payload(
+                            from_name=str(last_place.get("name") or trip.destination),
+                            to_name=day_lodging,
+                            previous_end_time=last_place.get("end_time"),
+                            next_start_time=None,
+                        )
+                    )
+            constrained[day.day_number] = items
+
+        for index in range(1, len(sorted_days)):
+            prev_day = sorted_days[index - 1]
+            current_day = sorted_days[index]
+            start_from = (prev_day.lodging_note or "").strip() or None
+            if not start_from:
+                continue
+            items = constrained.get(current_day.day_number, [])
+            first_place = next((item for item in items if not self._is_transport_item_payload(item)), None)
+            if first_place is None:
+                continue
+            if not items or not self._is_transport_item_payload(items[0]):
+                items.insert(
+                    0,
+                    self._build_fallback_transport_item_payload(
+                        from_name=start_from,
+                        to_name=str(first_place.get("name") or trip.destination),
+                        previous_end_time=None,
+                        next_start_time=first_place.get("start_time"),
+                    )
+                )
+            constrained[current_day.day_number] = items
+
+        return constrained
+
+    def _clamp_day_place_times(self, items: list[dict]) -> list[dict]:
+        clamped: list[dict] = []
+        fallback_cursor = self.ACTIVITY_START_TIME
+        for item in items:
+            if self._is_transport_item_payload(item):
+                clamped.append(item)
+                continue
+            start_time = item.get("start_time") or fallback_cursor
+            end_time = item.get("end_time") or self._shift_hhmm(start_time, 90)
+            start_time = self._clamp_hhmm(start_time, self.ACTIVITY_START_TIME, "21:30")
+            end_time = self._clamp_hhmm(end_time, start_time, self.ACTIVITY_END_TIME)
+            if end_time < start_time:
+                end_time = start_time
+            item["start_time"] = start_time
+            item["end_time"] = end_time
+            fallback_cursor = self._shift_hhmm(end_time, 15) or self.ACTIVITY_END_TIME
+            clamped.append(item)
+        return clamped
+
+    def _clamp_hhmm(self, value: Optional[str], minimum: str, maximum: str) -> str:
+        raw = value or minimum
+        if raw < minimum:
+            return minimum
+        if raw > maximum:
+            return maximum
+        return raw
+
+    def _drop_leading_and_trailing_transport(self, items: list[dict]) -> list[dict]:
+        if not items:
+            return items
+        start = 0
+        end = len(items)
+        while start < end and self._is_transport_item_payload(items[start]):
+            start += 1
+        while end > start and self._is_transport_item_payload(items[end - 1]):
+            end -= 1
+        return items[start:end]
+
+    def _reduce_overpacked_after_long_transport(self, items: list[dict]) -> list[dict]:
+        reduced: list[dict] = []
+        long_transfer_seen = False
+        place_after_long_transfer = 0
+        for item in items:
+            if self._is_transport_item_payload(item):
+                travel_minutes = self._to_optional_int(item.get("travel_minutes")) or 0
+                if travel_minutes >= 180:
+                    long_transfer_seen = True
+                    place_after_long_transfer = 0
+                reduced.append(item)
+                continue
+            if long_transfer_seen:
+                place_after_long_transfer += 1
+                if place_after_long_transfer > 2:
+                    continue
+            reduced.append(item)
+        return reduced
 
     def _to_hhmm(self, value: Optional[datetime]) -> Optional[str]:
         if value is None:

@@ -39,7 +39,7 @@ export function buildAiGenerationRequestFromForm(
       .split(/[\n,、]/)
       .map((item) => item.trim())
       .filter(Boolean),
-    lodging_notes: formValues.accommodationNotesByDay.map((item) => item.trim()).filter(Boolean),
+    lodging_notes: formValues.accommodationNotesByDay.map((item) => item.trim()),
     additional_request_comment: formValues.additionalRequestComment.trim() || undefined,
   };
 }
