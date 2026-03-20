@@ -61,6 +61,10 @@ export type TripDetailItineraryItemResponse = {
   end_time?: string | null;
   estimated_cost?: number | null;
   notes?: string | null;
+  line_name?: string | null;
+  vehicle_type?: string | null;
+  departure_stop_name?: string | null;
+  arrival_stop_name?: string | null;
   created_at?: string | null;
 };
 
