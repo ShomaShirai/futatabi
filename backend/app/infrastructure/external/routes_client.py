@@ -339,12 +339,12 @@ class RoutesClient:
         try:
             with request.urlopen(req, timeout=20) as resp:
                 raw = resp.read().decode("utf-8")
-                logger.info(
+                logger.debug(
                     "RoutesClient transit raw response: origin=%s destination=%s subtype=%s body=%s",
                     origin.name,
                     destination.name,
                     transit_subtype or "ANY",
-                    raw[:4000],
+                    raw[:500],
                 )
         except Exception:
             logger.exception(
