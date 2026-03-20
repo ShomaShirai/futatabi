@@ -1,0 +1,20 @@
+# Terraform caches and state
+.terraform/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Local backend and variable values
+backend.hcl
+**/backend.hcl
+*.tfvars
+*.tfvars.json
+
+# Lock file (ignored for this bootstrap phase)
+.terraform.lock.hcl
+**/.terraform.lock.hcl
+
+# Terraform plan files
+tfplan
+*.tfplan
