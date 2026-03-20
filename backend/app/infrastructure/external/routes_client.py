@@ -355,7 +355,16 @@ class RoutesClient:
             )
             return []
 
-        response = json.loads(raw)
+        try:
+            response = json.loads(raw)
+        except Exception:
+            logger.exception(
+                "RoutesClient transit response JSON decode failed: origin=%s destination=%s subtype=%s",
+                origin.name,
+                destination.name,
+                transit_subtype or "ANY",
+            )
+            return []
         routes = response.get("routes", []) or []
         if not routes:
             logger.warning(
