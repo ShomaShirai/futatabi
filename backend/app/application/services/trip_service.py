@@ -126,6 +126,57 @@ class TripService:
     MAX_NEAREST_DESTINATIONS_PER_CANDIDATE = 3
     ACTIVITY_START_TIME = "09:00"
     ACTIVITY_END_TIME = "22:00"
+    LOCAL_DESTINATION_RADIUS_METERS = 80_000
+    WIDE_DESTINATION_RADIUS_METERS = 350_000
+    PREFECTURE_TOKENS = (
+        "北海道",
+        "青森県",
+        "岩手県",
+        "宮城県",
+        "秋田県",
+        "山形県",
+        "福島県",
+        "茨城県",
+        "栃木県",
+        "群馬県",
+        "埼玉県",
+        "千葉県",
+        "東京都",
+        "神奈川県",
+        "新潟県",
+        "富山県",
+        "石川県",
+        "福井県",
+        "山梨県",
+        "長野県",
+        "岐阜県",
+        "静岡県",
+        "愛知県",
+        "三重県",
+        "滋賀県",
+        "京都府",
+        "大阪府",
+        "兵庫県",
+        "奈良県",
+        "和歌山県",
+        "鳥取県",
+        "島根県",
+        "岡山県",
+        "広島県",
+        "山口県",
+        "徳島県",
+        "香川県",
+        "愛媛県",
+        "高知県",
+        "福岡県",
+        "佐賀県",
+        "長崎県",
+        "熊本県",
+        "大分県",
+        "宮崎県",
+        "鹿児島県",
+        "沖縄県",
+    )
     _SUSPECT_LOCATION_WORDS = {"test", "testing", "aaa", "aaaa", "abcde", "qwerty"}
 
     def __init__(self, trip_repository: TripRepository):
@@ -501,6 +552,10 @@ class TripService:
         lodging_notes: Optional[list[str]] = None,
         additional_request_comment: Optional[str] = None,
         selected_companion_names: Optional[list[str]] = None,
+        incident_type: Optional[str] = None,
+        incident_note: Optional[str] = None,
+        delay_minutes: Optional[int] = None,
+        adjustment_policies: Optional[list[str]] = None,
     ) -> AiPlanGeneration:
         generation_input = {
             "must_visit_places": [],
@@ -510,6 +565,10 @@ class TripService:
             "origin": None,
             "destination": None,
             "lodging": None,
+            "incident_type": None,
+            "incident_note": None,
+            "delay_minutes": None,
+            "adjustment_policies": [],
         }
 
         aggregate = await self.get_my_trip_detail(user_id=owner_user_id, trip_id=trip_id)
@@ -528,6 +587,14 @@ class TripService:
         normalized_must_visit_places = _normalize_generation_text_items(must_visit_places)
         normalized_lodging_notes = _normalize_generation_text_items_by_day(lodging_notes)
         normalized_additional_comment = (additional_request_comment or "").strip() or None
+        normalized_incident_type = (incident_type or "").strip() or None
+        normalized_incident_note = (incident_note or "").strip() or None
+        normalized_delay_minutes = (
+            int(delay_minutes)
+            if isinstance(delay_minutes, int) and not isinstance(delay_minutes, bool) and delay_minutes > 0
+            else None
+        )
+        normalized_adjustment_policies = _normalize_generation_text_items(adjustment_policies)
         self._validate_location_like_text(aggregate.trip.origin, "出発地")
         self._validate_location_like_text(aggregate.trip.destination, "目的地")
         for lodging_note in normalized_lodging_notes:
@@ -586,6 +653,10 @@ class TripService:
             "origin": self._normalize_lat_lng(origin, field_name="origin"),
             "destination": self._normalize_lat_lng(destination, field_name="destination"),
             "lodging": self._normalize_lat_lng(lodging, field_name="lodging") if lodging else None,
+            "incident_type": normalized_incident_type,
+            "incident_note": normalized_incident_note,
+            "delay_minutes": normalized_delay_minutes,
+            "adjustment_policies": normalized_adjustment_policies,
         }
 
         generation = AiPlanGeneration(
@@ -660,6 +731,9 @@ class TripService:
                 preference=aggregate.preference,
                 max_candidates=24,
                 must_visit_places=(generation_input or {}).get("must_visit_places"),
+                destination_location=(generation_input or {}).get("destination"),
+                incident_type=(generation_input or {}).get("incident_type"),
+                adjustment_policies=(generation_input or {}).get("adjustment_policies"),
             )
             route_options = await self._collect_route_options(
                 trip=aggregate.trip,
@@ -687,6 +761,7 @@ class TripService:
                 fallback_candidates=place_candidates,
                 route_options=route_options,
                 destination=aggregate.trip.destination,
+                destination_location=(generation_input or {}).get("destination"),
             )
             normalized, route_diagnostics = await self._rebuild_transport_items_from_routes(
                 trip=aggregate.trip,
@@ -695,6 +770,10 @@ class TripService:
                 place_candidates=place_candidates,
                 origin_location=(generation_input or {}).get("origin"),
                 destination_location=(generation_input or {}).get("destination"),
+            )
+            normalized = self._apply_incident_plan_adjustments(
+                normalized_plan=normalized,
+                generation_input=generation_input,
             )
             normalized = self._enforce_plan_constraints(
                 trip=aggregate.trip,
@@ -734,6 +813,9 @@ class TripService:
                     "candidates": len(place_candidates),
                     "inserted_items": inserted_count,
                     "regeneration_mode": regeneration_mode,
+                    "incident_type": (generation_input or {}).get("incident_type"),
+                    "delay_minutes": (generation_input or {}).get("delay_minutes"),
+                    "adjustment_policies": (generation_input or {}).get("adjustment_policies") or [],
                     "transit_step_items": transit_step_count,
                     "transit_line_items": transit_line_count,
                     "transit_attempted_pairs": route_diagnostics.get("transit_attempted_pairs", 0),
@@ -1037,15 +1119,36 @@ class TripService:
         preference: Optional[TripPreference],
         max_candidates: int,
         must_visit_places: Optional[list[str]] = None,
+        destination_location: Optional[dict] = None,
+        incident_type: Optional[str] = None,
+        adjustment_policies: Optional[list[str]] = None,
     ) -> list[PlaceCandidate]:
         place_client = GooglePlacesClient()
         atmosphere_hint = preference.atmosphere.value if preference is not None else ""
+        normalized_policies = set(_normalize_generation_text_items(adjustment_policies))
         queries = [
             f"{destination} 観光地",
             f"{destination} 人気スポット",
             f"{destination} レストラン",
             f"{destination} カフェ",
         ]
+        if incident_type == "bad_weather" or "indoor_preferred" in normalized_policies:
+            queries.extend(
+                [
+                    f"{destination} 屋内 おすすめ",
+                    f"{destination} 美術館",
+                    f"{destination} 水族館",
+                    f"{destination} ショッピングモール",
+                ]
+            )
+        if incident_type == "delay" or "shorter_travel" in normalized_policies:
+            queries.extend([f"{destination} 駅近 観光", f"{destination} 徒歩圏内 おすすめ"])
+        if incident_type == "fatigue" or "less_walking" in normalized_policies:
+            queries.extend([f"{destination} 休憩 カフェ", f"{destination} 温泉 日帰り"])
+        if "food_priority" in normalized_policies:
+            queries.extend([f"{destination} ランチ 人気", f"{destination} ディナー おすすめ"])
+        if "scenic_priority" in normalized_policies:
+            queries.extend([f"{destination} 展望台", f"{destination} 景色 おすすめ"])
         if atmosphere_hint:
             queries.append(f"{destination} {atmosphere_hint} おすすめ")
         for must_visit_place in _normalize_generation_text_items(must_visit_places):
@@ -1057,6 +1160,12 @@ class TripService:
         for query in queries:
             results = await place_client.search_text(query=query, max_results=per_query)
             for result in results:
+                if not self._is_place_candidate_allowed_for_destination_context(
+                    candidate=result,
+                    destination=destination,
+                    destination_location=destination_location,
+                ):
+                    continue
                 key = (result.name, result.address or "")
                 if key in seen:
                     continue
@@ -1158,6 +1267,10 @@ class TripService:
         lodging_notes = _normalize_generation_text_items_by_day(generation_input.get("lodging_notes"))
         selected_companion_names = _normalize_generation_text_items(generation_input.get("selected_companion_names"))
         additional_request_comment = (generation_input.get("additional_request_comment") or "").strip() or None
+        incident_type = (generation_input.get("incident_type") or "").strip() or None
+        incident_note = (generation_input.get("incident_note") or "").strip() or None
+        delay_minutes = generation_input.get("delay_minutes")
+        adjustment_policies = _normalize_generation_text_items(generation_input.get("adjustment_policies"))
         return (
             "旅行日程を最適化してください。必ずJSONオブジェクトのみを返してください。\n"
             'フォーマット: {"days": [{"day_number": 1, "items": ['
@@ -1177,6 +1290,10 @@ class TripService:
             f"lodging_notes_by_day={json.dumps(lodging_notes, ensure_ascii=False)}\n"
             f"selected_companion_names={json.dumps(selected_companion_names, ensure_ascii=False)}\n"
             f"additional_request_comment={json.dumps(additional_request_comment, ensure_ascii=False)}\n"
+            f"incident_type={json.dumps(incident_type, ensure_ascii=False)}\n"
+            f"incident_note={json.dumps(incident_note, ensure_ascii=False)}\n"
+            f"delay_minutes={json.dumps(delay_minutes, ensure_ascii=False)}\n"
+            f"adjustment_policies={json.dumps(adjustment_policies, ensure_ascii=False)}\n"
             f"candidates={json.dumps(candidates_payload, ensure_ascii=False)}\n"
             f"route_options={json.dumps(route_options_payload, ensure_ascii=False)}\n"
             "ルール:\n"
@@ -1201,9 +1318,74 @@ class TripService:
             "- lodging_notes_by_day は day_number 順の配列（null は指定なし）として扱い、各日の夜の帰着や宿泊候補として尊重する\n"
             "- additional_request_comment に書かれた希望や制約を優先する\n"
             "- selected_companion_names は同行者コンテキストとして扱い、二人旅やグループ旅行らしい無理のないプランにする\n"
+            "- incident_type, incident_note, delay_minutes, adjustment_policies がある場合は通常の希望より優先する\n"
+            "- bad_weather または indoor_preferred のときは屋内スポットを優先する\n"
+            "- delay または delay_minutes があるときは後半の予定を詰め込みすぎず、必要なら優先度の低いスポットを減らす\n"
+            "- fatigue, less_walking, shorter_travel のときは徒歩負荷と移動回数を減らす\n"
+            "- food_priority のときは食事スポットを優先する\n"
+            "- scenic_priority のときは景色系スポットを優先する\n"
             "- 公共交通（電車・バス）を優先し、成立しない場合のみ徒歩や代替手段を使う\n"
             "- 長距離移動直後に予定を詰め込みすぎない現実的な行程にする\n"
         )
+
+    def _apply_incident_plan_adjustments(
+        self,
+        normalized_plan: dict,
+        generation_input: Optional[dict] = None,
+    ) -> dict:
+        generation_input = generation_input or {}
+        incident_type = (generation_input.get("incident_type") or "").strip()
+        delay_minutes = generation_input.get("delay_minutes")
+        policies = set(_normalize_generation_text_items(generation_input.get("adjustment_policies")))
+
+        max_places_per_day: Optional[int] = None
+        if isinstance(delay_minutes, int) and delay_minutes >= 90:
+            max_places_per_day = 2
+        elif isinstance(delay_minutes, int) and delay_minutes >= 30:
+            max_places_per_day = 3
+        elif incident_type == "fatigue" or {"less_walking", "shorter_travel"} & policies:
+            max_places_per_day = 3
+
+        if max_places_per_day is None:
+            return normalized_plan
+
+        adjusted_days: list[dict] = []
+        for day_payload in normalized_plan.get("days", []):
+            day_copy = dict(day_payload)
+            day_copy["items"] = self._limit_place_items_for_adjustment(
+                day_payload.get("items", []),
+                max_places_per_day=max_places_per_day,
+            )
+            adjusted_days.append(day_copy)
+
+        updated_plan = dict(normalized_plan)
+        updated_plan["days"] = adjusted_days
+        return updated_plan
+
+    def _limit_place_items_for_adjustment(
+        self,
+        items: list[dict],
+        max_places_per_day: int,
+    ) -> list[dict]:
+        trimmed: list[dict] = []
+        place_count = 0
+        for item in items:
+            item_type = (item.get("item_type") or "").strip().lower()
+            if item_type == "place":
+                if place_count >= max_places_per_day:
+                    continue
+                place_count += 1
+                trimmed.append(item)
+                continue
+
+            if item_type == "transport":
+                if place_count >= max_places_per_day:
+                    continue
+                trimmed.append(item)
+                continue
+
+            trimmed.append(item)
+        return trimmed
 
     def _validate_location_like_text(self, value: str, field_label: str) -> None:
         text = (value or "").strip()
@@ -1344,9 +1526,11 @@ class TripService:
         fallback_candidates: list[PlaceCandidate],
         route_options: list[RouteOption],
         destination: str,
+        destination_location: Optional[dict] = None,
     ) -> dict[int, list[dict]]:
         by_day: dict[int, list[dict]] = {day.day_number: [] for day in days}
         candidate_map = {candidate.name: candidate for candidate in fallback_candidates}
+        candidate_list = list(candidate_map.values())
         days_payload = plan_payload.get("days", [])
         if isinstance(days_payload, list):
             for day_node in days_payload:
@@ -1366,9 +1550,19 @@ class TripService:
                             item=item,
                             destination=destination,
                             candidate_map=candidate_map,
+                            destination_location=destination_location,
                         )
                     ):
-                        by_day[day_number].append(item)
+                        matched_candidate = self._find_matching_place_candidate_for_payload(
+                            item=item,
+                            candidates=candidate_list,
+                        )
+                        by_day[day_number].append(
+                            self._enrich_place_item_payload(
+                                item=item,
+                                candidate=matched_candidate,
+                            )
+                        )
 
         if any(by_day.values()):
             return {
@@ -1403,22 +1597,43 @@ class TripService:
         item: dict,
         destination: str,
         candidate_map: dict[str, PlaceCandidate],
+        destination_location: Optional[dict] = None,
     ) -> bool:
         if self._is_transport_item_payload(item):
-            return True
-        if not self._is_okinawa_destination(destination):
             return True
 
         name = str(item.get("name") or "")
         notes = str(item.get("notes") or "")
         joined = f"{name} {notes}".strip()
-        candidate = candidate_map.get(name)
+        candidate = self._find_matching_place_candidate_for_payload(
+            item=item,
+            candidates=list(candidate_map.values()),
+        )
         candidate_address = candidate.address if candidate is not None else None
 
-        if self._contains_non_okinawa_prefecture(joined):
+        if self._contains_non_matching_prefecture(
+            text=joined,
+            allowed_prefectures=self._extract_destination_prefecture_tokens(destination),
+        ):
             return False
-        if candidate_address and self._contains_non_okinawa_prefecture(candidate_address):
+        if candidate_address and self._contains_non_matching_prefecture(
+            text=candidate_address,
+            allowed_prefectures=self._extract_destination_prefecture_tokens(destination),
+        ):
             return False
+
+        coordinates = self._resolve_item_or_candidate_coordinates(item=item, candidate=candidate)
+        if coordinates is not None and self._is_far_from_destination(
+            latitude=coordinates[0],
+            longitude=coordinates[1],
+            destination=destination,
+            destination_location=destination_location,
+        ):
+            return False
+
+        if not self._is_okinawa_destination(destination):
+            return True
+
         if self._contains_okinawa_keyword(joined):
             return True
         if candidate_address and self._contains_okinawa_keyword(candidate_address):
@@ -1433,6 +1648,101 @@ class TripService:
 
         return True
 
+    def _enrich_place_item_payload(
+        self,
+        *,
+        item: dict,
+        candidate: Optional[PlaceCandidate],
+    ) -> dict:
+        if self._is_transport_item_payload(item):
+            return item
+
+        enriched = dict(item)
+        if candidate is None:
+            return enriched
+
+        if not enriched.get("category") and candidate.category:
+            enriched["category"] = candidate.category
+        if enriched.get("latitude") is None and candidate.latitude is not None:
+            enriched["latitude"] = candidate.latitude
+        if enriched.get("longitude") is None and candidate.longitude is not None:
+            enriched["longitude"] = candidate.longitude
+        if candidate.address and not enriched.get("notes"):
+            enriched["notes"] = candidate.address
+        return enriched
+
+    def _find_matching_place_candidate_for_payload(
+        self,
+        *,
+        item: dict,
+        candidates: list[PlaceCandidate],
+    ) -> Optional[PlaceCandidate]:
+        name = str(item.get("name") or "").strip()
+        if not name or not candidates:
+            return None
+
+        normalized_item_name = self._normalize_place_name(name)
+        exact_matches = [
+            candidate
+            for candidate in candidates
+            if self._normalize_place_name(candidate.name) == normalized_item_name
+        ]
+        if exact_matches:
+            return self._pick_best_place_candidate_from_payload(item=item, candidates=exact_matches)
+
+        partial_matches = [
+            candidate
+            for candidate in candidates
+            if normalized_item_name in self._normalize_place_name(candidate.name)
+            or self._normalize_place_name(candidate.name) in normalized_item_name
+        ]
+        if partial_matches:
+            return self._pick_best_place_candidate_from_payload(item=item, candidates=partial_matches)
+
+        return None
+
+    def _pick_best_place_candidate_from_payload(
+        self,
+        *,
+        item: dict,
+        candidates: list[PlaceCandidate],
+    ) -> PlaceCandidate:
+        latitude = item.get("latitude")
+        longitude = item.get("longitude")
+        if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
+            return candidates[0]
+
+        return min(
+            candidates,
+            key=lambda candidate: self._estimate_distance_to_coordinates(
+                float(latitude),
+                float(longitude),
+                candidate.latitude,
+                candidate.longitude,
+            ),
+        )
+
+    def _is_place_candidate_allowed_for_destination_context(
+        self,
+        candidate: PlaceCandidate,
+        destination: str,
+        destination_location: Optional[dict] = None,
+    ) -> bool:
+        joined = " ".join(part for part in (candidate.name, candidate.address) if part).strip()
+        if self._contains_non_matching_prefecture(
+            text=joined,
+            allowed_prefectures=self._extract_destination_prefecture_tokens(destination),
+        ):
+            return False
+        if candidate.latitude is not None and candidate.longitude is not None and self._is_far_from_destination(
+            latitude=candidate.latitude,
+            longitude=candidate.longitude,
+            destination=destination,
+            destination_location=destination_location,
+        ):
+            return False
+        return True
+
     @staticmethod
     def _is_okinawa_destination(destination: str) -> bool:
         text = (destination or "").strip()
@@ -1442,57 +1752,72 @@ class TripService:
     def _contains_okinawa_keyword(text: str) -> bool:
         return any(keyword in text for keyword in ("沖縄", "那覇", "恩納", "石垣", "宮古", "宜野湾", "名護", "浦添"))
 
-    @staticmethod
-    def _contains_non_okinawa_prefecture(text: str) -> bool:
-        prefecture_tokens = (
-            "北海道",
-            "青森県",
-            "岩手県",
-            "宮城県",
-            "秋田県",
-            "山形県",
-            "福島県",
-            "茨城県",
-            "栃木県",
-            "群馬県",
-            "埼玉県",
-            "千葉県",
-            "東京都",
-            "神奈川県",
-            "新潟県",
-            "富山県",
-            "石川県",
-            "福井県",
-            "山梨県",
-            "長野県",
-            "岐阜県",
-            "静岡県",
-            "愛知県",
-            "三重県",
-            "滋賀県",
-            "京都府",
-            "大阪府",
-            "兵庫県",
-            "奈良県",
-            "和歌山県",
-            "鳥取県",
-            "島根県",
-            "岡山県",
-            "広島県",
-            "山口県",
-            "徳島県",
-            "香川県",
-            "愛媛県",
-            "高知県",
-            "福岡県",
-            "佐賀県",
-            "長崎県",
-            "熊本県",
-            "大分県",
-            "宮崎県",
-            "鹿児島県",
+    def _extract_destination_prefecture_tokens(self, destination: str) -> set[str]:
+        text = (destination or "").strip()
+        if not text:
+            return set()
+
+        matched = {token for token in self.PREFECTURE_TOKENS if token in text}
+        if "沖縄" in text or "那覇" in text:
+            matched.add("沖縄県")
+        return matched
+
+    def _contains_non_matching_prefecture(self, text: str, allowed_prefectures: set[str]) -> bool:
+        if not text or not allowed_prefectures:
+            return False
+        return any(token in text for token in self.PREFECTURE_TOKENS if token not in allowed_prefectures)
+
+    def _resolve_item_or_candidate_coordinates(
+        self,
+        *,
+        item: dict,
+        candidate: Optional[PlaceCandidate],
+    ) -> Optional[tuple[float, float]]:
+        latitude = item.get("latitude")
+        longitude = item.get("longitude")
+        if isinstance(latitude, (int, float)) and isinstance(longitude, (int, float)):
+            return float(latitude), float(longitude)
+        if candidate is not None and candidate.latitude is not None and candidate.longitude is not None:
+            return candidate.latitude, candidate.longitude
+        return None
+
+    def _is_destination_scope_wide(self, destination: str) -> bool:
+        text = (destination or "").strip()
+        if not text:
+            return False
+        return (
+            "北海道" in text
+            or "沖縄" in text
+            or any(token in text for token in self.PREFECTURE_TOKENS)
+            or any(marker in text for marker in ("都", "道", "府", "県"))
         )
-        return any(token in text for token in prefecture_tokens)
+
+    def _destination_radius_meters(self, destination: str) -> int:
+        if self._is_destination_scope_wide(destination):
+            return self.WIDE_DESTINATION_RADIUS_METERS
+        return self.LOCAL_DESTINATION_RADIUS_METERS
+
+    def _is_far_from_destination(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+        destination: str,
+        destination_location: Optional[dict] = None,
+    ) -> bool:
+        if not isinstance(destination_location, dict):
+            return False
+        destination_latitude = destination_location.get("latitude")
+        destination_longitude = destination_location.get("longitude")
+        if not isinstance(destination_latitude, (int, float)) or not isinstance(destination_longitude, (int, float)):
+            return False
+        distance = self._estimate_distance_to_coordinates(
+            latitude,
+            longitude,
+            float(destination_latitude),
+            float(destination_longitude),
+        )
+        return distance > self._destination_radius_meters(destination)
 
     @staticmethod
     def _is_within_okinawa_bounds(latitude: float, longitude: float) -> bool:
@@ -1823,6 +2148,7 @@ class TripService:
         to_name: str,
         previous_end_time: Optional[str],
         next_start_time: Optional[str],
+        diagnostics: Optional[dict] = None,
     ) -> dict:
         travel_minutes = self._infer_fallback_travel_minutes(previous_end_time, next_start_time)
         start_time, end_time = self._build_transport_time_window(
@@ -1831,6 +2157,9 @@ class TripService:
             travel_minutes=travel_minutes,
         )
         summary = f"公共交通機関が取得できませんでした。{from_name} → {to_name}"
+        diagnostics_status = str((diagnostics or {}).get("last_error_status") or "").strip()
+        if diagnostics_status:
+            summary = f"{summary} ({diagnostics_status})"
         return {
             "item_type": "transport",
             "name": "移動",
@@ -1940,16 +2269,10 @@ class TripService:
                 first_item = place_items[0]
                 destination_name = first_item.get("name")
                 if isinstance(destination_name, str) and destination_name.strip():
-                    # Prefer geo-coordinates for routing if origin_location is provided.
-                    # Fallback to the textual origin name to preserve existing behavior.
-                    if (
-                        isinstance(origin_location, dict)
-                        and "lat" in origin_location
-                        and "lng" in origin_location
-                    ):
-                        origin_for_routing = f'{origin_location["lat"]},{origin_location["lng"]}'
-                    else:
-                        origin_for_routing = trip.origin
+                    origin_candidate = self._place_candidate_from_lat_lng(name=trip.origin, coordinates=origin_location)
+                    destination_candidate = self._place_candidate_from_item(first_item, candidate_map)
+                    origin_for_routing = self._build_routing_location_input(origin_candidate) or trip.origin
+                    destination_for_routing = self._build_routing_location_input(destination_candidate) or destination_name
 
                     departure_time = self._resolve_route_departure_datetime(
                         trip_date=day.date or trip.start_date,
@@ -1957,7 +2280,7 @@ class TripService:
                     )
                     route_steps, diagnostics = await route_client.compute_route_steps_with_diagnostics(
                         origin=origin_for_routing,
-                        destination=destination_name,
+                        destination=destination_for_routing,
                         departure_time=departure_time,
                     )
                     for key in route_diagnostics:
@@ -1979,6 +2302,7 @@ class TripService:
                                 to_name=destination_name,
                                 previous_end_time=None,
                                 next_start_time=first_item.get("start_time"),
+                                diagnostics=diagnostics,
                             )
                         )
 
@@ -2002,17 +2326,22 @@ class TripService:
                             to_name=str(next_item.get("name")),
                             previous_end_time=item.get("end_time"),
                             next_start_time=next_item.get("start_time"),
+                            diagnostics=None,
                         )
                     )
                     continue
 
+                origin_candidate = self._place_candidate_from_item(item, candidate_map)
+                destination_candidate = self._place_candidate_from_item(next_item, candidate_map)
+                origin_for_routing = self._build_routing_location_input(origin_candidate) or origin_name
+                destination_for_routing = self._build_routing_location_input(destination_candidate) or destination_name
                 departure_time = self._resolve_route_departure_datetime(
                     trip_date=day.date or trip.start_date,
                     previous_end_time=item.get("end_time"),
                 )
                 route_steps, diagnostics = await route_client.compute_route_steps_with_diagnostics(
-                    origin=origin_name,
-                    destination=destination_name,
+                    origin=origin_for_routing,
+                    destination=destination_for_routing,
                     departure_time=departure_time,
                 )
                 for key in route_diagnostics:
@@ -2050,23 +2379,28 @@ class TripService:
                             to_name=str(next_item.get("name")),
                             previous_end_time=item.get("end_time"),
                             next_start_time=next_item.get("start_time"),
+                            diagnostics=diagnostics,
                         )
                     )
             if (
                 day.day_number == last_day_number
-                and destination_location
+                and origin_location
                 and place_items
             ):
                 last_item = place_items[-1]
                 origin_name = last_item.get("name")
                 if isinstance(origin_name, str) and origin_name.strip():
+                    origin_candidate = self._place_candidate_from_item(last_item, candidate_map)
+                    destination_candidate = self._place_candidate_from_lat_lng(name=trip.origin, coordinates=origin_location)
+                    origin_for_routing = self._build_routing_location_input(origin_candidate) or origin_name
+                    destination_for_routing = self._build_routing_location_input(destination_candidate) or trip.origin
                     departure_time = self._resolve_route_departure_datetime(
                         trip_date=day.date or trip.start_date,
                         previous_end_time=last_item.get("end_time"),
                     )
                     route_steps, diagnostics = await route_client.compute_route_steps_with_diagnostics(
-                        origin=origin_name,
-                        destination=trip.origin,
+                        origin=origin_for_routing,
+                        destination=destination_for_routing,
                         departure_time=departure_time,
                     )
                     for key in route_diagnostics:
@@ -2088,10 +2422,25 @@ class TripService:
                                 to_name=trip.origin,
                                 previous_end_time=last_item.get("end_time"),
                                 next_start_time=None,
+                                diagnostics=diagnostics,
                             )
                         )
             rebuilt[day.day_number] = expanded
         return rebuilt, route_diagnostics
+
+    def _build_routing_location_input(
+        self,
+        candidate: Optional[PlaceCandidate],
+    ) -> Optional[str]:
+        if candidate is None:
+            return None
+        if isinstance(candidate.latitude, (int, float)) and isinstance(candidate.longitude, (int, float)):
+            return f"{float(candidate.latitude)},{float(candidate.longitude)}"
+        if isinstance(candidate.address, str) and candidate.address.strip():
+            return candidate.address.strip()
+        if isinstance(candidate.name, str) and candidate.name.strip():
+            return candidate.name.strip()
+        return None
 
     def _place_candidate_from_item(
         self,
@@ -2110,6 +2459,19 @@ class TripService:
                 address=item.get("notes"),
                 latitude=float(latitude),
                 longitude=float(longitude),
+            )
+        matched_candidate = self._find_matching_place_candidate_for_payload(
+            item=item,
+            candidates=list(candidate_map.values()),
+        )
+        if matched_candidate is not None:
+            return matched_candidate
+        notes = item.get("notes")
+        if isinstance(notes, str) and notes.strip():
+            return PlaceCandidate(
+                name=name,
+                category=item.get("category"),
+                address=notes.strip(),
             )
         return candidate_map.get(name)
 
@@ -2213,8 +2575,8 @@ class TripService:
             "transport_mode": transport_mode,
             "travel_minutes": step.duration_minutes,
             "distance_meters": step.distance_meters,
-            "from_name": step.from_name or origin_name,
-            "to_name": step.to_name or destination_name,
+            "from_name": step.from_name,
+            "to_name": step.to_name,
             "start_time": start_time,
             "end_time": end_time,
             "notes": step.notes,

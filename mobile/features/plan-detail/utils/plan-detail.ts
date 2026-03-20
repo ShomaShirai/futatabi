@@ -5,6 +5,7 @@ import {
 } from '@/features/trips/types/trip-detail';
 import { type CreateAiPlanGenerationRequest } from '@/features/trips/types/ai-plan-generation';
 import { getApiErrorMessage } from '@/lib/api/client';
+import * as Location from 'expo-location';
 
 import { type PlanDetailDay, type PlanDetailTimelineItem, type PlanDetailViewModel } from '@/features/plan-detail/types';
 import { type TripStatus } from '@/features/trips/types/trip-status';
@@ -41,12 +42,37 @@ export function getAiGenerationErrorMessage(error: unknown): string {
   });
 }
 
-export function buildAiGenerationRequestFromAggregate(
+async function geocodeToLatLng(label: string, fieldLabel: string) {
+  const query = label.trim();
+  if (!query) {
+    throw new Error(`${fieldLabel}が未入力です。`);
+  }
+  const results = await Location.geocodeAsync(query);
+  const top = results[0];
+  if (!top) {
+    throw new Error(`${fieldLabel}の座標を特定できませんでした。入力を確認してください。`);
+  }
+  return {
+    latitude: top.latitude,
+    longitude: top.longitude,
+  };
+}
+
+export async function buildAiGenerationRequestFromAggregate(
   aggregate: TripDetailAggregateResponse,
   overrides: Partial<CreateAiPlanGenerationRequest> = {}
-): CreateAiPlanGenerationRequest {
+): Promise<CreateAiPlanGenerationRequest> {
   const sortedDays = [...aggregate.days].sort((a, b) => a.day_number - b.day_number);
+  const [origin, destination] = await Promise.all([
+    geocodeToLatLng(aggregate.trip.origin, '出発地'),
+    geocodeToLatLng(aggregate.trip.destination, '目的地'),
+  ]);
+  const lodgingLabel = sortedDays.find((day) => day.lodging_note?.trim())?.lodging_note?.trim();
+  const lodging = lodgingLabel ? await geocodeToLatLng(lodgingLabel, '宿泊地') : undefined;
   return {
+    origin,
+    destination,
+    lodging,
     run_async: false,
     must_visit_places: (aggregate.preference?.must_visit_places_text ?? '')
       .split(/[\n,、]/)
@@ -216,13 +242,7 @@ export function toTimelineItems(items: TripDetailItineraryItemResponse[]): PlanD
         : item.name,
     body:
       item.item_type === 'transport'
-        ? typeof item.notes === 'string' && item.notes.includes('公共交通機関が取得できませんでした')
-          ? item.notes
-          : item.departure_stop_name && item.arrival_stop_name
-          ? `${item.departure_stop_name} → ${item.arrival_stop_name}`
-          : item.from_name && item.to_name
-          ? `${item.from_name} → ${item.to_name}`
-          : item.notes || '移動'
+        ? buildTransportBody(item)
         : item.notes || item.category || '詳細メモは未設定です。',
     itemType: item.item_type === 'transport' ? 'transport' : 'place',
     metaLabel:
@@ -248,21 +268,48 @@ export function toTimelineItems(items: TripDetailItineraryItemResponse[]): PlanD
   }));
 }
 
-function normalizeTransportMode(mode?: string | null) {
-  return mode?.toUpperCase() ?? null;
+function buildTransportBody(item: TripDetailItineraryItemResponse) {
+  if (typeof item.notes === 'string' && item.notes.includes('公共交通機関が取得できませんでした')) {
+    return item.notes;
+  }
+
+  const routeLabel =
+    item.departure_stop_name && item.arrival_stop_name
+      ? `${item.departure_stop_name} → ${item.arrival_stop_name}`
+      : item.from_name && item.to_name
+      ? `${item.from_name} → ${item.to_name}`
+      : null;
+
+  const normalizedNotes = normalizeTransportNotes(item.notes);
+  if (routeLabel && normalizedNotes) {
+    return `${routeLabel}\n${normalizedNotes}`;
+  }
+  if (routeLabel) {
+    return routeLabel;
+  }
+  if (normalizedNotes) {
+    return normalizedNotes;
+  }
+  return '移動';
 }
 
-function transportModeLabel(mode?: string | null, vehicleType?: string | null) {
-  const normalized = normalizeTransportMode(mode);
-  if (!normalized) return '移動';
-  if (normalized === 'WALK') return '徒歩で移動';
-  if (normalized === 'BUS') return 'バスで移動';
-  if (normalized === 'CAR') return '車で移動';
-  if (normalized === 'TAXI') return 'タクシーで移動';
-  if (normalized === 'SHIP') return '船で移動';
-  if (normalized === 'BICYCLE') return '自転車で移動';
-  if (normalized === 'PLANE') return '飛行機で移動';
-  if (normalized === 'OTHER' && vehicleType) return `${vehicleType}で移動`;
+function normalizeTransportNotes(notes?: string | null) {
+  if (!notes) {
+    return null;
+  }
+  const compact = notes
+    .split('/')
+    .map((part) => part.trim())
+    .filter((part) => part && part !== 'Google Directions API')
+    .join(' / ');
+  return compact || null;
+}
+
+function transportModeLabel(mode?: string | null) {
+  if (!mode) return '移動';
+  if (mode === 'WALK') return '徒歩で移動';
+  if (mode === 'BUS') return 'バスで移動';
+  if (mode === 'CAR') return '車で移動';
   return '電車で移動';
 }
 
