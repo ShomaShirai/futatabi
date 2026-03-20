@@ -236,7 +236,10 @@ export function toTimelineItems(items: TripDetailItineraryItemResponse[]): PlanD
     id: item.id,
     start: toTimeLabel(item.start_time),
     end: toTimeLabel(item.end_time),
-    title: item.item_type === 'transport' ? transportModeLabel(item.transport_mode) : item.name,
+    title:
+      item.item_type === 'transport'
+        ? item.name || transportModeLabel(item.transport_mode, item.vehicle_type)
+        : item.name,
     body:
       item.item_type === 'transport'
         ? buildTransportBody(item)
@@ -252,7 +255,7 @@ export function toTimelineItems(items: TripDetailItineraryItemResponse[]): PlanD
         : toDurationLabel(item.start_time, item.end_time),
     icon:
       item.item_type === 'transport'
-        ? transportModeIcon(item.transport_mode)
+        ? transportModeIcon(item.transport_mode, item.vehicle_type)
         : item.category === 'food'
         ? 'restaurant'
         : item.category === 'transport'
@@ -310,11 +313,17 @@ function transportModeLabel(mode?: string | null) {
   return '電車で移動';
 }
 
-function transportModeIcon(mode?: string | null): keyof typeof MaterialIcons.glyphMap {
-  if (!mode) return 'swap-horiz';
-  if (mode === 'WALK') return 'directions-walk';
-  if (mode === 'BUS') return 'directions-bus';
-  if (mode === 'CAR') return 'directions-car';
+function transportModeIcon(mode?: string | null, vehicleType?: string | null): keyof typeof MaterialIcons.glyphMap {
+  const normalized = normalizeTransportMode(mode);
+  if (!normalized) return 'swap-horiz';
+  if (normalized === 'WALK') return 'directions-walk';
+  if (normalized === 'BUS') return 'directions-bus';
+  if (normalized === 'CAR') return 'directions-car';
+  if (normalized === 'TAXI') return 'local-taxi';
+  if (normalized === 'SHIP') return 'directions-boat';
+  if (normalized === 'BICYCLE') return 'directions-bike';
+  if (normalized === 'PLANE') return 'flight';
+  if (normalized === 'OTHER' && vehicleType?.includes('ロープウェイ')) return 'tram';
   return 'train';
 }
 
@@ -324,10 +333,11 @@ function buildTransportMetaLabel(
   travelMinutes?: number | null,
   distanceMeters?: number | null
 ) {
+  const normalized = normalizeTransportMode(transportMode);
   const parts: string[] = [];
   if (lineName) {
     parts.push(lineName);
-  } else if (transportMode === 'BUS' || transportMode === 'TRAIN') {
+  } else if (normalized === 'BUS' || normalized === 'TRAIN') {
     parts.push('公共交通');
   }
   if (typeof distanceMeters === 'number') {
