@@ -38,6 +38,7 @@ type ScheduleFieldProps = {
   required?: boolean;
   maxTripDays?: number;
   style?: StyleProp<ViewStyle>;
+  disabled?: boolean;
 };
 
 function parseDateInput(value: string) {
@@ -223,6 +224,7 @@ export function ScheduleField({
   required = false,
   maxTripDays,
   style,
+  disabled = false,
 }: ScheduleFieldProps) {
   const isWeb = Platform.OS === 'web';
   const [isIosDateModalVisible, setIsIosDateModalVisible] = useState(false);
@@ -302,6 +304,10 @@ export function ScheduleField({
   );
 
   const openSchedulePicker = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+
     if (Platform.OS === 'android') {
       openAndroidDatePicker('startDate');
       return;
@@ -310,7 +316,7 @@ export function ScheduleField({
     setIosDraftStartDate(parseDateInput(startDate));
     setIosDraftEndDate(parseDateInput(endDate));
     setIsIosDateModalVisible(true);
-  }, [openAndroidDatePicker, startDate, endDate]);
+  }, [disabled, openAndroidDatePicker, startDate, endDate]);
 
   useEffect(() => {
     if (!isWeb) {
@@ -465,12 +471,17 @@ export function ScheduleField({
     <View style={style}>
       <FieldLabel label={label} required={required} iconName={iconName} />
       <View style={styles.scheduleRow}>
-        <Pressable style={styles.scheduleInput} onPress={openSchedulePicker}>
+        <Pressable
+          style={[styles.scheduleInput, disabled ? styles.scheduleInputDisabled : null]}
+          onPress={openSchedulePicker}
+          disabled={disabled}
+        >
           <View style={styles.scheduleInputBody}>
             <View style={styles.scheduleTextWrap}>
               <Text
                 style={[
                   styles.scheduleValueText,
+                  disabled ? styles.scheduleValueTextDisabled : null,
                   !(startDate || endDate) ? styles.schedulePlaceholderText : null,
                 ]}
               >
@@ -478,14 +489,21 @@ export function ScheduleField({
               </Text>
             </View>
           </View>
-          <MaterialIcons name="chevron-right" size={20} color="#94A3B8" />
+          <MaterialIcons name={disabled ? 'lock' : 'chevron-right'} size={20} color="#94A3B8" />
         </Pressable>
         <Pressable
-          style={[styles.scheduleResetButton, !hasSelectedDates ? styles.scheduleResetButtonDisabled : null]}
+          style={[
+            styles.scheduleResetButton,
+            !hasSelectedDates || disabled ? styles.scheduleResetButtonDisabled : null,
+          ]}
           onPress={handleResetDates}
-          disabled={!hasSelectedDates}
+          disabled={!hasSelectedDates || disabled}
         >
-          <MaterialIcons name="close" size={20} color={hasSelectedDates ? '#64748B' : '#CBD5E1'} />
+          <MaterialIcons
+            name="close"
+            size={20}
+            color={hasSelectedDates && !disabled ? '#64748B' : '#CBD5E1'}
+          />
         </Pressable>
       </View>
 
@@ -592,6 +610,9 @@ const styles = StyleSheet.create({
     gap: 12,
     flex: 1,
   },
+  scheduleInputDisabled: {
+    backgroundColor: '#F8FAFC',
+  },
   scheduleRow: {
     marginTop: 12,
     flexDirection: 'row',
@@ -612,6 +633,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     color: '#0F172A',
+  },
+  scheduleValueTextDisabled: {
+    color: '#64748B',
   },
   schedulePlaceholderText: {
     color: '#94A3B8',
