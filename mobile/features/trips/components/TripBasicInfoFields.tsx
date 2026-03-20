@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
   fieldLabelRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 6,
+    gap: 7,
   },
   fieldLabelIcon: {
     marginTop: 1,
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   fieldLabelTextWrap: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 2,
+    gap: 1,
   },
   fieldLabel: {
     fontSize: 14,
@@ -410,15 +410,15 @@ const styles = StyleSheet.create({
     lineHeight: 12,
     fontWeight: '700',
     color: '#DC2626',
-    marginTop: -3,
+    marginTop: -4,
   },
   scheduleInput: {
-    marginTop: 10,
+    marginTop: 12,
     borderWidth: 1,
     borderColor: '#CBD5E1',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
