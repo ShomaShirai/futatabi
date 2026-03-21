@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 from app.domain.entities.trip import (
@@ -25,7 +25,6 @@ from app.infrastructure.external import (
     GooglePlacesClient,
     PlaceCandidate,
     RouteOption,
-    RoutesClient,
     RouteStep,
 )
 from app.shared.exceptions import (
@@ -124,6 +123,7 @@ class TripService:
     MAX_TRIP_DAYS = 3
     MAX_ROUTE_CANDIDATES = 8
     MAX_NEAREST_DESTINATIONS_PER_CANDIDATE = 3
+    ROUTE_ESTIMATION_BATCH_SIZE = 6
     ACTIVITY_START_TIME = "09:00"
     ACTIVITY_END_TIME = "22:00"
     LOCAL_DESTINATION_RADIUS_METERS = 80_000
@@ -735,10 +735,14 @@ class TripService:
                 incident_type=(generation_input or {}).get("incident_type"),
                 adjustment_policies=(generation_input or {}).get("adjustment_policies"),
             )
-            route_options = await self._collect_route_options(
+            selected_transport_types = self._parse_selected_transport_types(
+                aggregate.preference.transport_type if aggregate.preference is not None else None
+            )
+            route_options, route_estimation_diagnostics = await self._collect_route_options(
                 trip=aggregate.trip,
                 days=days,
                 place_candidates=place_candidates,
+                selected_transport_types=selected_transport_types,
             )
             fallback_used = False
             fallback_reason: str | None = None
@@ -763,14 +767,6 @@ class TripService:
                 destination=aggregate.trip.destination,
                 destination_location=(generation_input or {}).get("destination"),
             )
-            normalized, route_diagnostics = await self._rebuild_transport_items_from_routes(
-                trip=aggregate.trip,
-                days=days,
-                normalized_plan=normalized,
-                place_candidates=place_candidates,
-                origin_location=(generation_input or {}).get("origin"),
-                destination_location=(generation_input or {}).get("destination"),
-            )
             normalized = self._apply_incident_plan_adjustments(
                 normalized_plan=normalized,
                 generation_input=generation_input,
@@ -780,6 +776,7 @@ class TripService:
                 days=days,
                 normalized_plan=normalized,
             )
+            route_diagnostics = self._count_transport_diagnostics(normalized)
             regeneration_mode = self._normalize_regeneration_mode((generation_input or {}).get("regeneration_mode"))
             transit_step_count, transit_line_count = self._count_transit_transport_items(normalized)
             generated_items = self._build_generated_itinerary_items(days=days, normalized_plan=normalized)
@@ -818,16 +815,15 @@ class TripService:
                     "adjustment_policies": (generation_input or {}).get("adjustment_policies") or [],
                     "transit_step_items": transit_step_count,
                     "transit_line_items": transit_line_count,
-                    "transit_attempted_pairs": route_diagnostics.get("transit_attempted_pairs", 0),
-                    "transit_succeeded_pairs": route_diagnostics.get("transit_succeeded_pairs", 0),
-                    "transit_empty_pairs": route_diagnostics.get("transit_empty_pairs", 0),
-                    "transit_timeout_pairs": route_diagnostics.get("transit_timeout_pairs", 0),
-                    "transit_exception_pairs": route_diagnostics.get("transit_exception_pairs", 0),
-                    "transit_fallback_info_pairs": route_diagnostics.get("transit_fallback_info_pairs", 0),
-                    "empty_pairs": route_diagnostics.get("transit_empty_pairs", 0),
-                    "timeout_pairs": route_diagnostics.get("transit_timeout_pairs", 0),
-                    "walk_fallback_pairs": route_diagnostics.get("walk_fallback_pairs", 0),
-                    "drive_fallback_pairs": route_diagnostics.get("drive_fallback_pairs", 0),
+                    "route_batches_total": route_estimation_diagnostics.get("route_batches_total", 0),
+                    "route_batches_failed": route_estimation_diagnostics.get("route_batches_failed", 0),
+                    "route_estimated_pairs": route_estimation_diagnostics.get("route_estimated_pairs", 0),
+                    "route_fallback_pairs": route_estimation_diagnostics.get("route_fallback_pairs", 0),
+                    "route_invalid_pairs": route_estimation_diagnostics.get("route_invalid_pairs", 0),
+                    "transport_attempted_pairs": route_diagnostics.get("attempted_pairs", 0),
+                    "transport_transit_pairs": route_diagnostics.get("transit_pairs", 0),
+                    "transport_walk_pairs": route_diagnostics.get("walk_pairs", 0),
+                    "transport_car_pairs": route_diagnostics.get("drive_pairs", 0),
                     "cover_image_updated": cover_image_updated,
                     "fallback_used": fallback_used,
                     "fallback_reason": fallback_reason,
@@ -1473,7 +1469,8 @@ class TripService:
         trip: Trip,
         days: list[TripDay],
         place_candidates: list[PlaceCandidate],
-    ) -> list[RouteOption]:
+        selected_transport_types: list[str],
+    ) -> tuple[list[RouteOption], dict[str, int]]:
         candidates = [
             candidate
             for candidate in place_candidates
@@ -1481,12 +1478,13 @@ class TripService:
         ]
         candidates = candidates[: self.MAX_ROUTE_CANDIDATES]
         if len(candidates) < 2:
-            return []
-
-        departure_date = days[0].date if days and days[0].date is not None else trip.start_date
-        local_departure_time = datetime.combine(departure_date, time(9, 0)).replace(tzinfo=ZoneInfo("Asia/Tokyo"))
-        departure_time = local_departure_time.astimezone(timezone.utc)
-        route_client = RoutesClient()
+            return [], {
+                "route_batches_total": 0,
+                "route_batches_failed": 0,
+                "route_estimated_pairs": 0,
+                "route_fallback_pairs": 0,
+                "route_invalid_pairs": 0,
+            }
 
         pair_candidates: list[tuple[str, str]] = []
         seen_pairs: set[tuple[str, str]] = set()
@@ -1504,20 +1502,263 @@ class TripService:
                 seen_pairs.add(key)
                 pair_candidates.append((origin.name, destination.name))
 
-        results = await asyncio.gather(
-            *[
-                route_client.compute_route_options(
-                    origin=origin, destination=destination, departure_time=departure_time
-                )
-                for origin, destination in pair_candidates
-            ],
-            return_exceptions=True,
+        estimated_route_options, estimate_diagnostics = await self._estimate_route_options_with_gemini(
+            trip=trip,
+            pair_candidates=pair_candidates,
+            place_candidates=candidates,
+            selected_transport_types=selected_transport_types,
         )
+        route_option_map: dict[tuple[str, str], RouteOption] = {
+            (option.from_name, option.to_name): option for option in estimated_route_options
+        }
+
+        fallback_pairs = 0
         route_options: list[RouteOption] = []
-        for result in results:
-            if isinstance(result, list):
-                route_options.extend(result)
-        return route_options
+        for origin, destination in pair_candidates:
+            existing = route_option_map.get((origin, destination))
+            if existing is not None:
+                route_options.append(existing)
+                continue
+            route_options.append(
+                self._fallback_route_option_from_pair(
+                    origin_name=origin,
+                    destination_name=destination,
+                    candidate_map={candidate.name: candidate for candidate in candidates},
+                )
+            )
+            fallback_pairs += 1
+
+        estimated_pairs = max(len(route_options) - fallback_pairs, 0)
+        return route_options, {
+            "route_batches_total": estimate_diagnostics.get("route_batches_total", 0),
+            "route_batches_failed": estimate_diagnostics.get("route_batches_failed", 0),
+            "route_estimated_pairs": estimated_pairs,
+            "route_fallback_pairs": fallback_pairs,
+            "route_invalid_pairs": estimate_diagnostics.get("route_invalid_pairs", 0),
+        }
+
+    async def _estimate_route_options_with_gemini(
+        self,
+        *,
+        trip: Trip,
+        pair_candidates: list[tuple[str, str]],
+        place_candidates: list[PlaceCandidate],
+        selected_transport_types: list[str],
+    ) -> tuple[list[RouteOption], dict[str, int]]:
+        if not pair_candidates:
+            return [], {
+                "route_batches_total": 0,
+                "route_batches_failed": 0,
+                "route_invalid_pairs": 0,
+            }
+        candidate_map = {candidate.name: candidate for candidate in place_candidates}
+        allowed_modes = self._resolve_allowed_transport_modes(selected_transport_types)
+        gemini_client = GeminiClient()
+        batches_total = 0
+        batches_failed = 0
+        invalid_pairs = 0
+        route_options: list[RouteOption] = []
+        seen: set[tuple[str, str]] = set()
+        for batch_pairs in self._chunk_route_pairs(pair_candidates, self.ROUTE_ESTIMATION_BATCH_SIZE):
+            batches_total += 1
+            batch_names = {name for pair in batch_pairs for name in pair}
+            batch_candidate_map = {name: candidate_map[name] for name in batch_names if name in candidate_map}
+            prompt = self._build_route_estimation_prompt(
+                trip=trip,
+                pair_candidates=batch_pairs,
+                candidate_map=batch_candidate_map,
+                selected_transport_types=selected_transport_types,
+            )
+            try:
+                payload = await gemini_client.generate_json(prompt=prompt, temperature=0.1)
+            except Exception:  # noqa: BLE001
+                batches_failed += 1
+                invalid_pairs += len(batch_pairs)
+                logger.exception("TripService route estimation failed: Gemini batch request exception")
+                continue
+
+            if not isinstance(payload, dict):
+                batches_failed += 1
+                invalid_pairs += len(batch_pairs)
+                continue
+            raw_pairs = payload.get("pairs")
+            if not isinstance(raw_pairs, list):
+                batches_failed += 1
+                invalid_pairs += len(batch_pairs)
+                continue
+
+            batch_expected = set(batch_pairs)
+            batch_estimated: set[tuple[str, str]] = set()
+            for raw_pair in raw_pairs:
+                option = self._build_route_option_from_estimate(
+                    raw_pair=raw_pair,
+                    candidate_map=batch_candidate_map,
+                    allowed_modes=allowed_modes,
+                )
+                if option is None:
+                    invalid_pairs += 1
+                    continue
+                key = (option.from_name, option.to_name)
+                batch_estimated.add(key)
+                if key in seen:
+                    continue
+                seen.add(key)
+                route_options.append(option)
+
+            missing_pairs = batch_expected - batch_estimated
+            invalid_pairs += len(missing_pairs)
+
+        return route_options, {
+            "route_batches_total": batches_total,
+            "route_batches_failed": batches_failed,
+            "route_invalid_pairs": invalid_pairs,
+        }
+
+    @staticmethod
+    def _chunk_route_pairs(
+        pair_candidates: list[tuple[str, str]],
+        batch_size: int,
+    ) -> list[list[tuple[str, str]]]:
+        safe_batch_size = max(batch_size, 1)
+        return [
+            pair_candidates[index : index + safe_batch_size]
+            for index in range(0, len(pair_candidates), safe_batch_size)
+        ]
+
+    def _build_route_estimation_prompt(
+        self,
+        *,
+        trip: Trip,
+        pair_candidates: list[tuple[str, str]],
+        candidate_map: dict[str, PlaceCandidate],
+        selected_transport_types: list[str],
+    ) -> str:
+        candidate_payload = [
+            {
+                "name": name,
+                "address": candidate.address,
+                "category": candidate.category,
+                "latitude": candidate.latitude,
+                "longitude": candidate.longitude,
+            }
+            for name, candidate in candidate_map.items()
+        ]
+        pair_payload = [{"from_name": origin, "to_name": destination} for origin, destination in pair_candidates]
+        return (
+            "以下の地点ペアの移動推定を行い、JSONのみ返してください。\n"
+            'フォーマット: {"pairs": [{"from_name": "", "to_name": "", "transport_mode": "WALK|TRAIN|BUS|CAR", '
+            '"travel_minutes": 0, "distance_meters": 0, "notes": "", "confidence": 0.0}]}\n'
+            f"trip={json.dumps({'origin': trip.origin, 'destination': trip.destination}, ensure_ascii=False)}\n"
+            f"selected_transport_types={json.dumps(selected_transport_types, ensure_ascii=False)}\n"
+            f"candidates={json.dumps(candidate_payload, ensure_ascii=False)}\n"
+            f"pairs={json.dumps(pair_payload, ensure_ascii=False)}\n"
+            "ルール:\n"
+            "- pairs に渡した全ペアを返す\n"
+            "- from_name/to_name は必ず pairs 内の値だけを使う\n"
+            "- transport_mode は WALK/TRAIN/BUS/CAR のみ\n"
+            "- selected_transport_types に含まれない手段は使わない（WALKは常に許可）\n"
+            "- WALK で 60分を超える値は返さない\n"
+            "- travel_minutes は正の整数、distance_meters は正の整数\n"
+            "- 不確実な場合は confidence を下げる\n"
+        )
+
+    def _build_route_option_from_estimate(
+        self,
+        *,
+        raw_pair: Any,
+        candidate_map: dict[str, PlaceCandidate],
+        allowed_modes: set[str],
+    ) -> Optional[RouteOption]:
+        if not isinstance(raw_pair, dict):
+            return None
+        origin = str(raw_pair.get("from_name") or "").strip()
+        destination = str(raw_pair.get("to_name") or "").strip()
+        if not origin or not destination:
+            return None
+        if origin == destination:
+            return None
+        if origin not in candidate_map or destination not in candidate_map:
+            return None
+
+        raw_mode = str(raw_pair.get("transport_mode") or "WALK").upper()
+        mode = raw_mode if raw_mode in {"WALK", "TRAIN", "BUS", "CAR"} else "WALK"
+        if mode not in allowed_modes:
+            return None
+
+        travel_minutes = self._to_optional_int(raw_pair.get("travel_minutes"))
+        if travel_minutes is None or travel_minutes <= 0:
+            return None
+        if mode == "WALK" and travel_minutes > 60:
+            return None
+
+        origin_candidate = candidate_map[origin]
+        destination_candidate = candidate_map[destination]
+        raw_distance = self._estimate_distance_meters(origin_candidate, destination_candidate)
+        if raw_distance == float("inf") or raw_distance <= 0:
+            estimated_distance = 1200
+        else:
+            estimated_distance = int(raw_distance)
+        distance_meters = self._to_optional_int(raw_pair.get("distance_meters")) or estimated_distance
+        if distance_meters <= 0:
+            distance_meters = estimated_distance
+        notes = str(raw_pair.get("notes") or "").strip() or "Gemini推定移動"
+
+        return RouteOption(
+            from_name=origin,
+            to_name=destination,
+            travel_mode=mode,
+            transit_subtype=self._route_mode_to_subtype(mode),
+            duration_minutes=travel_minutes,
+            distance_meters=distance_meters,
+            summary=notes,
+            vehicle_type=mode,
+        )
+
+    def _fallback_route_option_from_pair(
+        self,
+        *,
+        origin_name: str,
+        destination_name: str,
+        candidate_map: dict[str, PlaceCandidate],
+    ) -> RouteOption:
+        origin_candidate = candidate_map.get(origin_name)
+        destination_candidate = candidate_map.get(destination_name)
+        raw_distance = (
+            self._estimate_distance_meters(origin_candidate, destination_candidate)
+            if origin_candidate is not None and destination_candidate is not None
+            else float("inf")
+        )
+        if raw_distance == float("inf") or raw_distance <= 0:
+            estimated_distance = 1200
+        else:
+            estimated_distance = int(raw_distance)
+        fallback_minutes = max(15, min(30, estimated_distance // 70))
+        return RouteOption(
+            from_name=origin_name,
+            to_name=destination_name,
+            travel_mode="WALK",
+            transit_subtype=None,
+            duration_minutes=fallback_minutes,
+            distance_meters=estimated_distance,
+            summary="保守的fallback移動（Gemini補完）",
+            vehicle_type="WALK",
+        )
+
+    def _resolve_allowed_transport_modes(self, selected_transport_types: list[str]) -> set[str]:
+        if not selected_transport_types:
+            return {"WALK", "TRAIN", "BUS", "CAR"}
+        allowed = {"WALK"}
+        if "train" in selected_transport_types:
+            allowed.add("TRAIN")
+        if "bus" in selected_transport_types:
+            allowed.add("BUS")
+        return allowed
+
+    @staticmethod
+    def _route_mode_to_subtype(mode: str) -> Optional[str]:
+        if mode in {"TRAIN", "BUS"}:
+            return mode
+        return None
 
     def _normalize_plan_payload(
         self,
@@ -2236,6 +2477,15 @@ class TripService:
         origin_location: Optional[dict] = None,
         destination_location: Optional[dict] = None,
     ) -> tuple[dict[int, list[dict]], dict[str, int]]:
+        # Legacy path intentionally disabled.
+        # Routing is now estimated by Gemini in _collect_route_options.
+        del trip, days, place_candidates, origin_location, destination_location
+        return normalized_plan, {
+            "route_estimated_pairs": 0,
+            "route_fallback_pairs": 0,
+            "route_invalid_pairs": 0,
+        }
+
         candidate_map = {candidate.name: candidate for candidate in place_candidates}
         rebuilt: dict[int, list[dict]] = {}
         route_diagnostics = {
