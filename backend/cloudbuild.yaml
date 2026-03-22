@@ -2,13 +2,15 @@ steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
+      - --platform
+      - linux/amd64
       - -f
-      - Dockerfile.cloudrun
+      - ${_DOCKERFILE}
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$SHORT_SHA
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:latest
-      - .
+      - ${_CONTEXT}
 
   - name: gcr.io/cloud-builders/docker
     args:
@@ -42,6 +44,8 @@ substitutions:
   _REPOSITORY: backend
   _IMAGE: api
   _SERVICE: gdgoc-backend-dev
+  _DOCKERFILE: backend/Dockerfile.cloudrun
+  _CONTEXT: backend
   _SECRET_DATABASE_URL: backend-database-url
   _SECRET_DEBUG: backend-debug
   _SECRET_FIREBASE_PROJECT_ID: backend-firebase-project-id
