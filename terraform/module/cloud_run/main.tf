@@ -16,6 +16,12 @@ resource "google_project_iam_member" "cloudsql_client" {
   member  = "serviceAccount:${google_service_account.runtime.email}"
 }
 
+resource "google_project_iam_member" "logs_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.runtime.email}"
+}
+
 resource "google_cloud_run_v2_service" "this" {
   project             = var.project_id
   name                = var.service_name
@@ -148,6 +154,7 @@ resource "google_cloud_run_v2_service" "this" {
   depends_on = [
     google_project_iam_member.secret_accessor,
     google_project_iam_member.cloudsql_client,
+    google_project_iam_member.logs_writer,
   ]
 }
 
