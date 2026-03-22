@@ -80,6 +80,16 @@ resource "google_cloud_run_v2_service" "this" {
       }
 
       env {
+        name = "GCS_SIGNED_URL_EXPIRATION_SECONDS"
+        value_source {
+          secret_key_ref {
+            secret  = "backend-gcs-signed-url-expiration-seconds"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name = "GOOGLE_PLACES_API_KEY"
         value_source {
           secret_key_ref {
@@ -120,6 +130,66 @@ resource "google_cloud_run_v2_service" "this" {
       }
 
       env {
+        name = "GOOGLE_DIRECTIONS_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "backend-google-directions-api-key"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GOOGLE_ROUTES_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "backend-google-routes-api-key"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GOOGLE_ROUTES_ENDPOINT"
+        value_source {
+          secret_key_ref {
+            secret  = "backend-google-routes-endpoint"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GOOGLE_DIRECTIONS_ENDPOINT"
+        value_source {
+          secret_key_ref {
+            secret  = "backend-google-directions-endpoint"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GOOGLE_ROUTES_CONNECT_TIMEOUT_SECONDS"
+        value_source {
+          secret_key_ref {
+            secret  = "backend-google-routes-connect-timeout-seconds"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GOOGLE_ROUTES_READ_TIMEOUT_SECONDS"
+        value_source {
+          secret_key_ref {
+            secret  = "backend-google-routes-read-timeout-seconds"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name = "GEMINI_API_KEY"
         value_source {
           secret_key_ref {
@@ -144,6 +214,26 @@ resource "google_cloud_run_v2_service" "this" {
         value_source {
           secret_key_ref {
             secret  = "backend-gemini-model"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GEMINI_CONNECT_TIMEOUT_SECONDS"
+        value_source {
+          secret_key_ref {
+            secret  = "backend-gemini-connect-timeout-seconds"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GEMINI_READ_TIMEOUT_SECONDS"
+        value_source {
+          secret_key_ref {
+            secret  = "backend-gemini-read-timeout-seconds"
             version = "latest"
           }
         }

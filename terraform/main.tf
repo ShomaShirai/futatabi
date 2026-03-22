@@ -5,17 +5,26 @@ locals {
   }
 
   secret_names = {
-    DATABASE_URL                = var.secret_name_database_url
-    DEBUG                       = var.secret_name_debug
-    FIREBASE_PROJECT_ID         = var.secret_name_firebase_project_id
-    GCS_BUCKET_NAME             = var.secret_name_gcs_bucket_name
-    GOOGLE_PLACES_API_KEY       = var.secret_name_google_places_api_key
-    GOOGLE_PLACES_ENDPOINT      = var.secret_name_google_places_endpoint
-    GOOGLE_PLACES_LANGUAGE_CODE = var.secret_name_google_places_language_code
-    GOOGLE_PLACES_REGION_CODE   = var.secret_name_google_places_region_code
-    GEMINI_API_KEY              = var.secret_name_gemini_api_key
-    GEMINI_API_BASE_URL         = var.secret_name_gemini_api_base_url
-    GEMINI_MODEL                = var.secret_name_gemini_model
+    DATABASE_URL                          = var.secret_name_database_url
+    DEBUG                                 = var.secret_name_debug
+    FIREBASE_PROJECT_ID                   = var.secret_name_firebase_project_id
+    GCS_BUCKET_NAME                       = var.secret_name_gcs_bucket_name
+    GCS_SIGNED_URL_EXPIRATION_SECONDS     = var.secret_name_gcs_signed_url_expiration_seconds
+    GOOGLE_PLACES_API_KEY                 = var.secret_name_google_places_api_key
+    GOOGLE_PLACES_ENDPOINT                = var.secret_name_google_places_endpoint
+    GOOGLE_PLACES_LANGUAGE_CODE           = var.secret_name_google_places_language_code
+    GOOGLE_PLACES_REGION_CODE             = var.secret_name_google_places_region_code
+    GOOGLE_DIRECTIONS_API_KEY             = var.secret_name_google_directions_api_key
+    GOOGLE_ROUTES_API_KEY                 = var.secret_name_google_routes_api_key
+    GOOGLE_ROUTES_ENDPOINT                = var.secret_name_google_routes_endpoint
+    GOOGLE_DIRECTIONS_ENDPOINT            = var.secret_name_google_directions_endpoint
+    GOOGLE_ROUTES_CONNECT_TIMEOUT_SECONDS = var.secret_name_google_routes_connect_timeout_seconds
+    GOOGLE_ROUTES_READ_TIMEOUT_SECONDS    = var.secret_name_google_routes_read_timeout_seconds
+    GEMINI_API_KEY                        = var.secret_name_gemini_api_key
+    GEMINI_API_BASE_URL                   = var.secret_name_gemini_api_base_url
+    GEMINI_MODEL                          = var.secret_name_gemini_model
+    GEMINI_CONNECT_TIMEOUT_SECONDS        = var.secret_name_gemini_connect_timeout_seconds
+    GEMINI_READ_TIMEOUT_SECONDS           = var.secret_name_gemini_read_timeout_seconds
   }
 
   database_url = format(
@@ -27,17 +36,26 @@ locals {
   )
 
   secret_values = {
-    (local.secret_names.DATABASE_URL)                = local.database_url
-    (local.secret_names.DEBUG)                       = var.secret_debug
-    (local.secret_names.FIREBASE_PROJECT_ID)         = var.secret_firebase_project_id
-    (local.secret_names.GCS_BUCKET_NAME)             = var.secret_gcs_bucket_name
-    (local.secret_names.GOOGLE_PLACES_API_KEY)       = var.secret_google_places_api_key
-    (local.secret_names.GOOGLE_PLACES_ENDPOINT)      = var.secret_google_places_endpoint
-    (local.secret_names.GOOGLE_PLACES_LANGUAGE_CODE) = var.secret_google_places_language_code
-    (local.secret_names.GOOGLE_PLACES_REGION_CODE)   = var.secret_google_places_region_code
-    (local.secret_names.GEMINI_API_KEY)              = var.secret_gemini_api_key
-    (local.secret_names.GEMINI_API_BASE_URL)         = var.secret_gemini_api_base_url
-    (local.secret_names.GEMINI_MODEL)                = var.secret_gemini_model
+    (local.secret_names.DATABASE_URL)                          = local.database_url
+    (local.secret_names.DEBUG)                                 = var.secret_debug
+    (local.secret_names.FIREBASE_PROJECT_ID)                   = var.secret_firebase_project_id
+    (local.secret_names.GCS_BUCKET_NAME)                       = var.secret_gcs_bucket_name
+    (local.secret_names.GCS_SIGNED_URL_EXPIRATION_SECONDS)     = var.secret_gcs_signed_url_expiration_seconds
+    (local.secret_names.GOOGLE_PLACES_API_KEY)                 = var.secret_google_places_api_key
+    (local.secret_names.GOOGLE_PLACES_ENDPOINT)                = var.secret_google_places_endpoint
+    (local.secret_names.GOOGLE_PLACES_LANGUAGE_CODE)           = var.secret_google_places_language_code
+    (local.secret_names.GOOGLE_PLACES_REGION_CODE)             = var.secret_google_places_region_code
+    (local.secret_names.GOOGLE_DIRECTIONS_API_KEY)             = var.secret_google_directions_api_key
+    (local.secret_names.GOOGLE_ROUTES_API_KEY)                 = var.secret_google_routes_api_key
+    (local.secret_names.GOOGLE_ROUTES_ENDPOINT)                = var.secret_google_routes_endpoint
+    (local.secret_names.GOOGLE_DIRECTIONS_ENDPOINT)            = var.secret_google_directions_endpoint
+    (local.secret_names.GOOGLE_ROUTES_CONNECT_TIMEOUT_SECONDS) = var.secret_google_routes_connect_timeout_seconds
+    (local.secret_names.GOOGLE_ROUTES_READ_TIMEOUT_SECONDS)    = var.secret_google_routes_read_timeout_seconds
+    (local.secret_names.GEMINI_API_KEY)                        = var.secret_gemini_api_key
+    (local.secret_names.GEMINI_API_BASE_URL)                   = var.secret_gemini_api_base_url
+    (local.secret_names.GEMINI_MODEL)                          = var.secret_gemini_model
+    (local.secret_names.GEMINI_CONNECT_TIMEOUT_SECONDS)        = var.secret_gemini_connect_timeout_seconds
+    (local.secret_names.GEMINI_READ_TIMEOUT_SECONDS)           = var.secret_gemini_read_timeout_seconds
   }
 }
 
@@ -135,21 +153,30 @@ module "cloud_build_trigger" {
   service_account_email = module.cloud_build_service_account.email
 
   substitutions = {
-    _REGION                             = var.region
-    _REPOSITORY                         = var.artifact_registry_repository
-    _IMAGE                              = var.cloudbuild_image
-    _SERVICE                            = var.cloud_run_service_name
-    _SECRET_DATABASE_URL                = local.secret_names.DATABASE_URL
-    _SECRET_DEBUG                       = local.secret_names.DEBUG
-    _SECRET_FIREBASE_PROJECT_ID         = local.secret_names.FIREBASE_PROJECT_ID
-    _SECRET_GCS_BUCKET_NAME             = local.secret_names.GCS_BUCKET_NAME
-    _SECRET_GOOGLE_PLACES_API_KEY       = local.secret_names.GOOGLE_PLACES_API_KEY
-    _SECRET_GOOGLE_PLACES_ENDPOINT      = local.secret_names.GOOGLE_PLACES_ENDPOINT
-    _SECRET_GOOGLE_PLACES_LANGUAGE_CODE = local.secret_names.GOOGLE_PLACES_LANGUAGE_CODE
-    _SECRET_GOOGLE_PLACES_REGION_CODE   = local.secret_names.GOOGLE_PLACES_REGION_CODE
-    _SECRET_GEMINI_API_KEY              = local.secret_names.GEMINI_API_KEY
-    _SECRET_GEMINI_API_BASE_URL         = local.secret_names.GEMINI_API_BASE_URL
-    _SECRET_GEMINI_MODEL                = local.secret_names.GEMINI_MODEL
+    _REGION                                       = var.region
+    _REPOSITORY                                   = var.artifact_registry_repository
+    _IMAGE                                        = var.cloudbuild_image
+    _SERVICE                                      = var.cloud_run_service_name
+    _SECRET_DATABASE_URL                          = local.secret_names.DATABASE_URL
+    _SECRET_DEBUG                                 = local.secret_names.DEBUG
+    _SECRET_FIREBASE_PROJECT_ID                   = local.secret_names.FIREBASE_PROJECT_ID
+    _SECRET_GCS_BUCKET_NAME                       = local.secret_names.GCS_BUCKET_NAME
+    _SECRET_GCS_SIGNED_URL_EXPIRATION_SECONDS     = local.secret_names.GCS_SIGNED_URL_EXPIRATION_SECONDS
+    _SECRET_GOOGLE_PLACES_API_KEY                 = local.secret_names.GOOGLE_PLACES_API_KEY
+    _SECRET_GOOGLE_PLACES_ENDPOINT                = local.secret_names.GOOGLE_PLACES_ENDPOINT
+    _SECRET_GOOGLE_PLACES_LANGUAGE_CODE           = local.secret_names.GOOGLE_PLACES_LANGUAGE_CODE
+    _SECRET_GOOGLE_PLACES_REGION_CODE             = local.secret_names.GOOGLE_PLACES_REGION_CODE
+    _SECRET_GOOGLE_DIRECTIONS_API_KEY             = local.secret_names.GOOGLE_DIRECTIONS_API_KEY
+    _SECRET_GOOGLE_ROUTES_API_KEY                 = local.secret_names.GOOGLE_ROUTES_API_KEY
+    _SECRET_GOOGLE_ROUTES_ENDPOINT                = local.secret_names.GOOGLE_ROUTES_ENDPOINT
+    _SECRET_GOOGLE_DIRECTIONS_ENDPOINT            = local.secret_names.GOOGLE_DIRECTIONS_ENDPOINT
+    _SECRET_GOOGLE_ROUTES_CONNECT_TIMEOUT_SECONDS = local.secret_names.GOOGLE_ROUTES_CONNECT_TIMEOUT_SECONDS
+    _SECRET_GOOGLE_ROUTES_READ_TIMEOUT_SECONDS    = local.secret_names.GOOGLE_ROUTES_READ_TIMEOUT_SECONDS
+    _SECRET_GEMINI_API_KEY                        = local.secret_names.GEMINI_API_KEY
+    _SECRET_GEMINI_API_BASE_URL                   = local.secret_names.GEMINI_API_BASE_URL
+    _SECRET_GEMINI_MODEL                          = local.secret_names.GEMINI_MODEL
+    _SECRET_GEMINI_CONNECT_TIMEOUT_SECONDS        = local.secret_names.GEMINI_CONNECT_TIMEOUT_SECONDS
+    _SECRET_GEMINI_READ_TIMEOUT_SECONDS           = local.secret_names.GEMINI_READ_TIMEOUT_SECONDS
   }
 
   depends_on = [module.artifact_registry, module.secret_manager, module.cloud_run, module.cloud_build_service_account]

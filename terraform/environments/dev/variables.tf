@@ -194,6 +194,12 @@ variable "secret_name_gcs_bucket_name" {
   default     = "backend-gcs-bucket-name"
 }
 
+variable "secret_name_gcs_signed_url_expiration_seconds" {
+  description = "Secret name for GCS_SIGNED_URL_EXPIRATION_SECONDS"
+  type        = string
+  default     = "backend-gcs-signed-url-expiration-seconds"
+}
+
 variable "secret_name_google_places_api_key" {
   description = "Secret name for GOOGLE_PLACES_API_KEY"
   type        = string
@@ -218,6 +224,42 @@ variable "secret_name_google_places_region_code" {
   default     = "backend-google-places-region-code"
 }
 
+variable "secret_name_google_directions_api_key" {
+  description = "Secret name for GOOGLE_DIRECTIONS_API_KEY"
+  type        = string
+  default     = "backend-google-directions-api-key"
+}
+
+variable "secret_name_google_routes_api_key" {
+  description = "Secret name for GOOGLE_ROUTES_API_KEY"
+  type        = string
+  default     = "backend-google-routes-api-key"
+}
+
+variable "secret_name_google_routes_endpoint" {
+  description = "Secret name for GOOGLE_ROUTES_ENDPOINT"
+  type        = string
+  default     = "backend-google-routes-endpoint"
+}
+
+variable "secret_name_google_directions_endpoint" {
+  description = "Secret name for GOOGLE_DIRECTIONS_ENDPOINT"
+  type        = string
+  default     = "backend-google-directions-endpoint"
+}
+
+variable "secret_name_google_routes_connect_timeout_seconds" {
+  description = "Secret name for GOOGLE_ROUTES_CONNECT_TIMEOUT_SECONDS"
+  type        = string
+  default     = "backend-google-routes-connect-timeout-seconds"
+}
+
+variable "secret_name_google_routes_read_timeout_seconds" {
+  description = "Secret name for GOOGLE_ROUTES_READ_TIMEOUT_SECONDS"
+  type        = string
+  default     = "backend-google-routes-read-timeout-seconds"
+}
+
 variable "secret_name_gemini_api_key" {
   description = "Secret name for GEMINI_API_KEY"
   type        = string
@@ -236,6 +278,18 @@ variable "secret_name_gemini_model" {
   default     = "backend-gemini-model"
 }
 
+variable "secret_name_gemini_connect_timeout_seconds" {
+  description = "Secret name for GEMINI_CONNECT_TIMEOUT_SECONDS"
+  type        = string
+  default     = "backend-gemini-connect-timeout-seconds"
+}
+
+variable "secret_name_gemini_read_timeout_seconds" {
+  description = "Secret name for GEMINI_READ_TIMEOUT_SECONDS"
+  type        = string
+  default     = "backend-gemini-read-timeout-seconds"
+}
+
 variable "secret_debug" {
   description = "Value for DEBUG secret"
   type        = string
@@ -250,6 +304,12 @@ variable "secret_firebase_project_id" {
 variable "secret_gcs_bucket_name" {
   description = "Value for GCS_BUCKET_NAME secret"
   type        = string
+}
+
+variable "secret_gcs_signed_url_expiration_seconds" {
+  description = "Value for GCS_SIGNED_URL_EXPIRATION_SECONDS secret"
+  type        = string
+  default     = "900"
 }
 
 variable "secret_google_places_api_key" {
@@ -276,6 +336,42 @@ variable "secret_google_places_region_code" {
   default     = "JP"
 }
 
+variable "secret_google_directions_api_key" {
+  description = "Value for GOOGLE_DIRECTIONS_API_KEY secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "secret_google_routes_api_key" {
+  description = "Value for GOOGLE_ROUTES_API_KEY secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "secret_google_routes_endpoint" {
+  description = "Value for GOOGLE_ROUTES_ENDPOINT secret"
+  type        = string
+  default     = "https://routes.googleapis.com/directions/v2:computeRoutes"
+}
+
+variable "secret_google_directions_endpoint" {
+  description = "Value for GOOGLE_DIRECTIONS_ENDPOINT secret"
+  type        = string
+  default     = "https://maps.googleapis.com/maps/api/directions/json"
+}
+
+variable "secret_google_routes_connect_timeout_seconds" {
+  description = "Value for GOOGLE_ROUTES_CONNECT_TIMEOUT_SECONDS secret"
+  type        = string
+  default     = "15"
+}
+
+variable "secret_google_routes_read_timeout_seconds" {
+  description = "Value for GOOGLE_ROUTES_READ_TIMEOUT_SECONDS secret"
+  type        = string
+  default     = "60"
+}
+
 variable "secret_gemini_api_key" {
   description = "Value for GEMINI_API_KEY secret"
   type        = string
@@ -292,4 +388,16 @@ variable "secret_gemini_model" {
   description = "Value for GEMINI_MODEL secret"
   type        = string
   default     = "gemini-2.5-flash"
+}
+
+variable "secret_gemini_connect_timeout_seconds" {
+  description = "Value for GEMINI_CONNECT_TIMEOUT_SECONDS secret"
+  type        = string
+  default     = "30"
+}
+
+variable "secret_gemini_read_timeout_seconds" {
+  description = "Value for GEMINI_READ_TIMEOUT_SECONDS secret"
+  type        = string
+  default     = "90"
 }
