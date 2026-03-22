@@ -16,7 +16,7 @@ cloudbuild_requires_approval  = false
 cloudbuild_service_account_id = "cloud-build-trigger-dev"
 
 github_owner        = "your-github-owner"
-github_repo         = "GDGoC-Hackason"
+github_repo         = "futatabi"
 github_branch_regex = "^main$"
 
 cloud_sql_instance_name    = "gdgoc-backend-dev-sql"
