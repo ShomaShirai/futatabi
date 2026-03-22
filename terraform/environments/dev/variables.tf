@@ -45,6 +45,11 @@ variable "cloudbuild_trigger_name" {
   type        = string
 }
 
+variable "cloudbuild_location" {
+  description = "Cloud Build trigger location (2nd gen, e.g. asia-northeast1)"
+  type        = string
+}
+
 variable "cloudbuild_filename" {
   description = "Path to cloudbuild yaml from repository root"
   type        = string
@@ -61,6 +66,35 @@ variable "cloudbuild_image" {
   description = "Image name used in Artifact Registry"
   type        = string
   default     = "api"
+}
+
+variable "cloudbuild_repository" {
+  description = "Cloud Build 2nd gen repository resource name"
+  type        = string
+}
+
+variable "cloudbuild_branch_regex" {
+  description = "Branch regex for Cloud Build trigger push event"
+  type        = string
+  default     = "^main$"
+}
+
+variable "cloudbuild_tag_pattern" {
+  description = "Optional tag regex for Cloud Build trigger push event"
+  type        = string
+  default     = null
+}
+
+variable "cloudbuild_requires_approval" {
+  description = "Require manual approval before build execution"
+  type        = bool
+  default     = false
+}
+
+variable "cloudbuild_service_account_id" {
+  description = "Service account id used by Cloud Build trigger"
+  type        = string
+  default     = "cloud-build-trigger"
 }
 
 variable "github_owner" {

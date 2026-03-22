@@ -109,17 +109,30 @@ module "cloud_run" {
   depends_on = [module.secret_manager]
 }
 
+module "cloud_build_service_account" {
+  source = "./module/cloud_build_service_account"
+
+  project_id   = var.project_id
+  account_id   = var.cloudbuild_service_account_id
+  display_name = "Cloud Build Trigger (${var.environment})"
+
+  depends_on = [google_project_service.enabled]
+}
+
 module "cloud_build_trigger" {
   source = "./module/cloud_build_trigger"
 
-  project_id          = var.project_id
-  name                = var.cloudbuild_trigger_name
-  description         = "Backend Cloud Build trigger (${var.environment})"
-  filename            = var.cloudbuild_filename
-  github_owner        = var.github_owner
-  github_repo         = var.github_repo
-  github_branch_regex = var.github_branch_regex
-  included_files      = var.cloudbuild_included_files
+  project_id            = var.project_id
+  name                  = var.cloudbuild_trigger_name
+  description           = "Backend Cloud Build trigger (${var.environment})"
+  region                = var.cloudbuild_location
+  repository            = var.cloudbuild_repository
+  branch_pattern        = var.cloudbuild_branch_regex
+  tag_pattern           = var.cloudbuild_tag_pattern
+  config_file_path      = var.cloudbuild_filename
+  included_files        = var.cloudbuild_included_files
+  requires_approval     = var.cloudbuild_requires_approval
+  service_account_email = module.cloud_build_service_account.email
 
   substitutions = {
     _REGION                             = var.region
@@ -139,5 +152,5 @@ module "cloud_build_trigger" {
     _SECRET_GEMINI_MODEL                = local.secret_names.GEMINI_MODEL
   }
 
-  depends_on = [module.artifact_registry, module.secret_manager, module.cloud_run]
+  depends_on = [module.artifact_registry, module.secret_manager, module.cloud_run, module.cloud_build_service_account]
 }

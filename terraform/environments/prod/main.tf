@@ -14,9 +14,15 @@ module "backend_infra" {
   cloud_run_allow_unauthenticated         = var.cloud_run_allow_unauthenticated
   cloud_run_deletion_protection           = var.cloud_run_deletion_protection
   cloudbuild_trigger_name                 = var.cloudbuild_trigger_name
+  cloudbuild_location                     = var.cloudbuild_location
   cloudbuild_filename                     = var.cloudbuild_filename
   cloudbuild_included_files               = var.cloudbuild_included_files
   cloudbuild_image                        = var.cloudbuild_image
+  cloudbuild_repository                   = var.cloudbuild_repository
+  cloudbuild_branch_regex                 = var.cloudbuild_branch_regex
+  cloudbuild_tag_pattern                  = var.cloudbuild_tag_pattern
+  cloudbuild_requires_approval            = var.cloudbuild_requires_approval
+  cloudbuild_service_account_id           = var.cloudbuild_service_account_id
   github_owner                            = var.github_owner
   github_repo                             = var.github_repo
   github_branch_regex                     = var.github_branch_regex

@@ -72,3 +72,4 @@ terraform apply tfplan
 - `backend/cloudbuild.yaml` の `--set-secrets` で参照する Secret 名は、Terraform のデフォルト Secret 名と一致させています。
 - Secret の初期値は `terraform.tfvars` から投入されるため、取り扱いには注意してください。
 - Cloud SQL は現時点で Public IP を使用する最小構成です（dev 向け）。
+- Cloud Build Trigger は 2nd gen (`repository_event_config`) を使用します。`cloudbuild_repository` には接続済み Repository のフルリソース名（`projects/.../locations/.../connections/.../repositories/...`）を設定してください。

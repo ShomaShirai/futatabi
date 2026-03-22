@@ -11,21 +11,27 @@ variable "description" {
   default = "Backend Cloud Build trigger"
 }
 
-variable "filename" {
+variable "region" {
+  type = string
+}
+
+variable "repository" {
+  type = string
+}
+
+variable "branch_pattern" {
+  type    = string
+  default = "^main$"
+}
+
+variable "tag_pattern" {
+  type    = string
+  default = null
+}
+
+variable "config_file_path" {
   type    = string
   default = "backend/cloudbuild.yaml"
-}
-
-variable "github_owner" {
-  type = string
-}
-
-variable "github_repo" {
-  type = string
-}
-
-variable "github_branch_regex" {
-  type = string
 }
 
 variable "included_files" {
@@ -36,4 +42,14 @@ variable "included_files" {
 variable "substitutions" {
   type    = map(string)
   default = {}
+}
+
+variable "requires_approval" {
+  type    = bool
+  default = false
+}
+
+variable "service_account_email" {
+  type    = string
+  default = null
 }

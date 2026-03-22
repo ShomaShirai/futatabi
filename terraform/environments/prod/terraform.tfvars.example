@@ -6,8 +6,14 @@ cloud_run_service_account_id = "gdgoc-backend-prod-run"
 cloud_run_deletion_protection = true
 
 cloudbuild_trigger_name = "gdgoc-backend-prod-trigger"
+cloudbuild_location     = "asia-northeast1"
 cloudbuild_filename     = "backend/cloudbuild.yaml"
-cloudbuild_image        = "api"
+cloudbuild_image              = "api"
+cloudbuild_repository         = "projects/your-project-id/locations/asia-northeast1/connections/your-connection/repositories/your-repo"
+cloudbuild_branch_regex       = "^main$"
+cloudbuild_tag_pattern        = null
+cloudbuild_requires_approval  = true
+cloudbuild_service_account_id = "cloud-build-trigger-prod"
 
 github_owner        = "your-github-owner"
 github_repo         = "GDGoC-Hackason"
