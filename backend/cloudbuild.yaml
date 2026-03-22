@@ -63,6 +63,9 @@ substitutions:
   _SECRET_GEMINI_CONNECT_TIMEOUT_SECONDS: backend-gemini-connect-timeout-seconds
   _SECRET_GEMINI_READ_TIMEOUT_SECONDS: backend-gemini-read-timeout-seconds
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$SHORT_SHA
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:latest
