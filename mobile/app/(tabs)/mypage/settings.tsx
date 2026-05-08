@@ -6,7 +6,6 @@ import { updateMe } from '@/features/auth/api/update-me';
 import { getSettingsSaveErrorMessage } from '@/features/mypage/utils/errors';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
-import { weatherMock } from '@/data/travel';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 
 export default function SettingsScreen() {
@@ -62,7 +61,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={travelStyles.screen}>
-      <AppHeader title="設定" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader title="設定" />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <BackButton />

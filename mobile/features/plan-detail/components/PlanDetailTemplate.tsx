@@ -7,7 +7,7 @@ import { type PlanDetailDay, type PlanDetailTimelineItem } from '@/features/plan
 
 type PlanDetailTemplateProps = {
   headerTitle: string;
-  weatherLabel: string;
+  weatherLabel?: string;
   topNoticeMessage?: string | null;
   headerLeftSlot?: ReactNode;
   headerRightSlot?: ReactNode;

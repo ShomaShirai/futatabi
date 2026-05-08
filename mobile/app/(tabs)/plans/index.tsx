@@ -17,7 +17,6 @@ import {
   View,
 } from 'react-native';
 
-import { weatherMock } from '@/data/travel';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { getTrips } from '@/features/trips/api/get-trips';
 import { type TripResponse } from '@/features/trips/types/trip-edit';
@@ -243,7 +242,7 @@ export default function PlansListScreen() {
 
   return (
     <View style={styles.screen}>
-      <AppHeader title="マイプラン" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader title="マイプラン" />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.searchSection}>

@@ -5,12 +5,6 @@ export type TripHistory = {
   detail: string;
 };
 
-export const weatherMock = {
-  location: '東京駅',
-  temp: '26°C',
-  condition: '晴れ',
-};
-
 export const tripHistoryMock = [
   {
     id: 'history-1',

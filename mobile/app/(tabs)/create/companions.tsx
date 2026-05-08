@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
-import { weatherMock } from '@/data/travel';
 import { getFriends } from '@/features/friends/api/get-friends';
 import { type FriendResponse } from '@/features/friends/types/friend-request';
 import { AppHeader } from '@/features/travel/components/AppHeader';
@@ -72,7 +71,7 @@ export default function CreateCompanionsScreen() {
     <ScrollView style={travelStyles.screen} contentContainerStyle={{ paddingBottom: 24 }}>
       <AppHeader
         title="同行者の選択"
-        weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
+
         leftSlot={headerBackSlot}
       />
 

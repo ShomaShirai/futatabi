@@ -12,7 +12,6 @@ import {
   View,
 } from 'react-native';
 
-import { weatherMock } from '@/data/travel';
 import { BackButton } from '@/components/back-button';
 import { PlanDetailTemplate } from '@/features/plan-detail/components/PlanDetailTemplate';
 import {
@@ -284,7 +283,7 @@ export default function PlanDetailScreen() {
       <View style={styles.screen}>
         <AppHeader
           title="計画詳細"
-          weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
+
           leftSlot={headerBackSlot}
         />
         <View style={styles.centerState}>
@@ -299,7 +298,7 @@ export default function PlanDetailScreen() {
       <View style={styles.screen}>
         <AppHeader
           title="計画詳細"
-          weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
+
           leftSlot={headerBackSlot}
         />
         <View style={styles.centerState}>
@@ -315,7 +314,7 @@ export default function PlanDetailScreen() {
       <View style={styles.screen}>
         <AppHeader
           title="計画詳細"
-          weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
+
           leftSlot={headerBackSlot}
         />
         <View style={styles.centerState}>
@@ -333,7 +332,7 @@ export default function PlanDetailScreen() {
     <>
       <PlanDetailTemplate
         headerTitle="マイプラン詳細"
-        weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
+
         topNoticeMessage={regenerationMessage}
         headerLeftSlot={headerBackSlot}
         heroImage={detailView.heroImage ?? PLAN_IMAGE_URL}

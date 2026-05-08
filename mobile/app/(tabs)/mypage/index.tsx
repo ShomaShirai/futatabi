@@ -27,7 +27,6 @@ import {
 } from '@/features/mypage/utils/errors';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
-import { weatherMock } from '@/data/travel';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 
 export default function MyPageScreen() {
@@ -202,7 +201,7 @@ export default function MyPageScreen() {
 
   return (
     <View style={travelStyles.screen}>
-      <AppHeader title="マイページ" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader title="マイページ" />
 
       <ScrollView
         style={styles.scrollView}

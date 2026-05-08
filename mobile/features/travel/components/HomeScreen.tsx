@@ -4,7 +4,6 @@ import { Link } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { weatherMock } from '@/data/travel';
 import { getRecommendPlans } from '@/features/recommend/api/get-recommend-plans';
 import { RecommendPlanCard } from '@/features/recommend/components/RecommendPlanCard';
 import { type RecommendPlanListItemViewModel } from '@/features/recommend/types';
@@ -192,7 +191,7 @@ function RecommendationsSection({ traveling }: { traveling: boolean }) {
       <View style={travelStyles.sectionTitle}>
         <Text style={travelStyles.sectionTitleText}>{traveling ? 'おすすめ' : '開始前の提案'}</Text>
         <Text style={travelStyles.subheading}>
-          {traveling ? '旅行中でも使えるおすすめです' : `現在地（${weatherMock.location}）で使えるおすすめです`}
+          {traveling ? '旅行中でも使えるおすすめです' : `現在地で使えるおすすめです`}
         </Text>
       </View>
     </>
@@ -314,7 +313,7 @@ export default function HomeScreen() {
 
   return (
     <ScrollView style={travelStyles.screen}>
-      <AppHeader title="ホーム" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader title="ホーム" />
 
       <View style={travelStyles.container}>
         {isLoading && !ongoingTrip ? (

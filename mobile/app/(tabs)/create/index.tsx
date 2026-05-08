@@ -2,7 +2,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { weatherMock } from '@/data/travel';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
 
@@ -36,7 +35,7 @@ export default function CreateIndexScreen() {
 
   return (
     <ScrollView style={travelStyles.screen} contentContainerStyle={styles.contentContainer}>
-      <AppHeader title="作成" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader title="作成" />
 
       <View style={travelStyles.container}>
         <View style={styles.heroBlock}>

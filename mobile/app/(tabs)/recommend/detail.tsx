@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
-import { weatherMock } from '@/data/travel';
 import { PlanDetailTemplate } from '@/features/plan-detail/components/PlanDetailTemplate';
 import { formatTravelDateLabel } from '@/features/plan-detail/utils/plan-detail';
 import { addMockRecommendTrip } from '@/features/recommend/api/add-mock-recommend-trip';
@@ -131,7 +130,7 @@ export default function RecommendationDetailScreen() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FDFDFD' }}>
-        <AppHeader title="おすすめ詳細" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+        <AppHeader title="おすすめ詳細" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
           <ActivityIndicator color="#EC5B13" />
           <Text style={{ color: '#64748B', fontSize: 14 }}>読み込み中...</Text>
@@ -143,7 +142,7 @@ export default function RecommendationDetailScreen() {
   if (!plan) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FDFDFD' }}>
-        <AppHeader title="おすすめ詳細" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+        <AppHeader title="おすすめ詳細" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 18, fontWeight: '700', color: '#0F172A' }}>投稿が見つかりませんでした</Text>
         </View>
@@ -154,7 +153,7 @@ export default function RecommendationDetailScreen() {
   return (
     <PlanDetailTemplate
       headerTitle="おすすめ詳細"
-      weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
+
       headerLeftSlot={headerBackSlot}
       heroImage={plan.image}
       title={plan.title}

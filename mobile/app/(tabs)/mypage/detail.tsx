@@ -3,7 +3,7 @@ import { ScrollView, Text, View } from 'react-native';
 
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
-import { tripHistoryMock, weatherMock } from '@/data/travel';
+import { tripHistoryMock } from '@/data/travel';
 
 type MyPageSection = 'friends' | 'history';
 
@@ -23,7 +23,7 @@ export default function MyPageDetailScreen() {
   if (!section) {
     return (
       <View style={travelStyles.screen}>
-        <AppHeader title="マイページ" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+        <AppHeader title="マイページ" />
         <View style={travelStyles.container}>
           <Text style={travelStyles.heading}>項目を選択してください</Text>
         </View>
@@ -34,7 +34,7 @@ export default function MyPageDetailScreen() {
   if (section === 'friends') {
     return (
       <ScrollView style={travelStyles.screen} contentContainerStyle={{ paddingBottom: 24 }}>
-        <AppHeader title="フレンド詳細" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+        <AppHeader title="フレンド詳細" />
 
         <View style={travelStyles.container}>
           <View style={travelStyles.detailSection}>
@@ -56,7 +56,7 @@ export default function MyPageDetailScreen() {
   if (section === 'history' && history) {
     return (
       <ScrollView style={travelStyles.screen} contentContainerStyle={{ paddingBottom: 24 }}>
-        <AppHeader title="旅行履歴詳細" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+        <AppHeader title="旅行履歴詳細" />
 
         <View style={travelStyles.container}>
           <View style={travelStyles.detailSection}>
@@ -72,7 +72,7 @@ export default function MyPageDetailScreen() {
 
   return (
     <View style={travelStyles.screen}>
-      <AppHeader title="詳細" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader title="詳細" />
       <View style={travelStyles.container}>
         <Text style={travelStyles.heading}>対象が見つかりませんでした</Text>
       </View>

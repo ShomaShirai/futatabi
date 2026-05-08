@@ -6,7 +6,6 @@ import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { BackButton } from '@/components/back-button';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
-import { weatherMock } from '@/data/travel';
 import {
   createIncident,
   createReplan,
@@ -79,7 +78,7 @@ export default function ReplanningScreen() {
     <View style={travelStyles.screen}>
       <AppHeader
         title="再計画"
-        weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`}
+
         leftSlot={<BackButton onPress={() => router.replace('/(tabs)/create')} />}
       />
 

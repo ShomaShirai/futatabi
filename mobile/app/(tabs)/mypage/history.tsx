@@ -3,12 +3,12 @@ import { FlatList, View } from 'react-native';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { ListButton } from '@/features/travel/components/ListButton';
 import { travelStyles } from '@/features/travel/styles';
-import { tripHistoryMock, weatherMock } from '@/data/travel';
+import { tripHistoryMock } from '@/data/travel';
 
 export default function HistoryListScreen() {
   return (
     <View style={travelStyles.screen}>
-      <AppHeader title="旅行履歴" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader title="旅行履歴" />
       <View style={travelStyles.container}>
         <FlatList
           data={tripHistoryMock}

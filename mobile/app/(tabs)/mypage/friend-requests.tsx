@@ -12,7 +12,6 @@ import {
 import { getFriendRequestUpdateErrorMessage } from '@/features/mypage/utils/errors';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
-import { weatherMock } from '@/data/travel';
 
 export default function FriendRequestsScreen() {
   const [requests, setRequests] = useState<FriendRequestResponse[]>([]);
@@ -62,7 +61,7 @@ export default function FriendRequestsScreen() {
 
   return (
     <View style={travelStyles.screen}>
-      <AppHeader title="受信フレンド申請" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader title="受信フレンド申請" />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <BackButton />
 

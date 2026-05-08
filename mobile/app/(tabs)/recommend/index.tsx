@@ -14,7 +14,6 @@ import {
   View,
 } from 'react-native';
 
-import { weatherMock } from '@/data/travel';
 import { getRecommendPlans } from '@/features/recommend/api/get-recommend-plans';
 import { RecommendPlanCard } from '@/features/recommend/components/RecommendPlanCard';
 import {
@@ -167,7 +166,7 @@ export default function RecommendationListScreen() {
 
   return (
     <View style={styles.screen}>
-      <AppHeader title="おすすめ" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader title="おすすめ" />
 
       <View style={styles.searchSection}>
         <View style={styles.searchWrap}>

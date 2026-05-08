@@ -3,7 +3,6 @@ import { useNavigation, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { weatherMock } from '@/data/travel';
 import { AppHeader } from '@/features/travel/components/AppHeader';
 import { travelStyles } from '@/features/travel/styles';
 import { createAiPlanGeneration } from '@/features/trips/api/ai-plan-generation';
@@ -310,7 +309,7 @@ export default function CreateGeneratingScreen() {
 
   return (
     <View style={travelStyles.screen}>
-      <AppHeader title="プランを作成中" weatherLabel={`${weatherMock.temp} ${weatherMock.condition}`} />
+      <AppHeader title="プランを作成中" />
 
       <ScrollView contentContainerStyle={styles.contentContainer}>
         <View style={styles.heroCard}>
