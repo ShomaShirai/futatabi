@@ -1,10 +1,3 @@
-export type TripHistory = {
-  id: string;
-  title: string;
-  date: string;
-  detail: string;
-};
-
 export const tripHistoryMock = [
   {
     id: 'history-1',
