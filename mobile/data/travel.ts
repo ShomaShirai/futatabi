@@ -1,10 +1,3 @@
-export type TripTimeline = {
-  id: string;
-  time: string;
-  place: string;
-  memo: string;
-};
-
 export type TripHistory = {
   id: string;
   title: string;
@@ -17,27 +10,6 @@ export const weatherMock = {
   temp: '26°C',
   condition: '晴れ',
 };
-
-export const timelineMock: TripTimeline[] = [
-  {
-    id: 'ts-1',
-    time: '10:00',
-    place: '東京駅',
-    memo: '改札を出て待ち合わせ場所へ移動',
-  },
-  {
-    id: 'ts-2',
-    time: '11:00',
-    place: '京都駅',
-    memo: '観光開始。三条店で朝食',
-  },
-  {
-    id: 'ts-3',
-    time: '14:00',
-    place: '清水寺',
-    memo: 'ゆっくり散策・お土産購入',
-  },
-];
 
 export const tripHistoryMock = [
   {
